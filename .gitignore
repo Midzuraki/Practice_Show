@@ -1,0 +1,14 @@
+*.db-wal
+*.db-shm
+*.db-journal
+*.sqlite-journal
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+ENV/
+.idea/
+.pytest_cache/
+*.log

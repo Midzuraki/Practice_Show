@@ -8,10 +8,6 @@
 
 На основе системных требований предметной области выделено **6 взаимосвязанных таблиц**. Для обеспечения ссылочной целостности на уровне ядра СУБД активирован режим поддержки внешних ключей (`PRAGMA foreign_keys = ON`), а также добавлены ограничения `CHECK` и `UNIQUE`.
 
-## 1. Определение сущностей, атрибутов и ограничений целостности
-
-На основе системных требований предметной области выделено **6 взаимосвязанных таблиц**. Для обеспечения ссылочной целостности на уровне ядра СУБД активирован режим поддержки внешних ключей (`PRAGMA foreign_keys = ON`), а также добавлены ограничения `CHECK` и `UNIQUE`.
-
 ### Структура и состав таблиц
 
 | Таблица | Поле (Атрибут) | Тип данных | Описание / Ограничения |
@@ -22,7 +18,7 @@
 | **dishes** | `name` | TEXT | NOT NULL (Название блюда) |
 | **dishes** | `description` | TEXT | NULL (Описание ингредиентов) |
 | **dishes** | `price` | REAL | NOT NULL, `CHECK (price > 0)` (Цена) |
-| **dishes** | `is_available` | INTEGER | NOT NULL, DEFAULT 1 (1 — в наличии, 0 — стоп-лист) |
+| **dishes** | `is_available` | INTEGER | NOT NULL, DEFAULT 1 (1-в наличии, 0-стоп) |
 | **dishes** | `category_id` | INTEGER | FOREIGN KEY -> `categories(id)` ON DELETE RESTRICT |
 | **employees** | `id` | INTEGER | PRIMARY KEY, AUTOINCREMENT |
 | **employees** | `full_name` | TEXT | NOT NULL (ФИО сотрудника) |
@@ -37,8 +33,15 @@
 | **order_items** | `id` | INTEGER | PRIMARY KEY, AUTOINCREMENT |
 | **order_items** | `order_id` | INTEGER | FOREIGN KEY -> `orders(id)` ON DELETE CASCADE |
 | **order_items** | `dish_id` | INTEGER | FOREIGN KEY -> `dishes(id)` ON DELETE RESTRICT |
-| **order_items** | `quantity` | INTEGER | NOT NULL, `CHECK (quantity > 0)` (Количество порций) |
-| **order_items** | `price_at_order` | REAL | NOT NULL, `CHECK (price_at_order > 0)` (Цена продажи) |
+| **order_items** | `quantity` | INTEGER | NOT NULL, `CHECK (quantity > 0)` (Количество) |
+| **order_items** | `price_at_order` | REAL | NOT NULL, `CHECK (price_at_order > 0)` (Цена фиксации) |
+
+### Характер и типы связей (Инфологическая модель)
+* `categories` ➔ `dishes` (**1:N**): Одна категория содержит множество блюд.
+* `employees` ➔ `orders` (**1:N**): Один официант может принять множество заказов.
+* `order_statuses` ➔ `orders` (**1:N**): Один статус применяется ко многим заказам.
+* `orders` ➔ `order_items` (**1:N**): Один чек содержит одну или несколько позиций блюд. При удалении заказа его позиции каскадно очищаются (`ON DELETE CASCADE`).
+* `dishes` ➔ `order_items` (**1:N**): Одно блюдо может фигурировать в составе разных чеков, что организует реляционную связь **M:N (Многие-ко-Многим)** между Заказами и Меню. Для исключения дублирования строк наложен композитный индекс `UNIQUE(order_id, dish_id)`.
 
 ---
 
@@ -105,26 +108,18 @@ CREATE TABLE IF NOT EXISTS order_items (
 
 ## 3. SQL-скрипт заполнения тестовыми данными (DML)
 
-Скрипт вносит демонстрационные данные для симуляции реального рабочего дня кафе:
-
 ```sql
--- Категории
 INSERT OR IGNORE INTO categories (name) VALUES 
 ('Закуски'), ('Салаты'), ('Супы'), ('Горячие блюда'), ('Десерты'), ('Напитки');
 
--- Сотрудники
 INSERT OR IGNORE INTO employees (full_name, position) VALUES 
-('Иванов Иван Иванович', 'Официант'),
-('Петрова Анна Сергеевна', 'Официант'),
-('Сидоров Алексей Петрович', 'Повар'),
-('Кузнецов Дмитрий Владимирович', 'Бармен'),
+('Иванов Иван Иванович', 'Официант'), ('Петрова Анна Сергеевна', 'Официант'),
+('Сидоров Алексей Петрович', 'Повар'), ('Кузнецов Дмитрий Владимирович', 'Бармен'),
 ('Смирнова Елена Николаевна', 'Администратор');
 
--- Статусы
 INSERT OR IGNORE INTO order_statuses (name) VALUES 
 ('Принят'), ('Готовится'), ('Готов'), ('Выдан'), ('Оплачен'), ('Отменён');
 
--- Блюда
 INSERT OR IGNORE INTO dishes (name, description, price, is_available, category_id) VALUES 
 ('Гренки чесночные', 'Ржаные гренки с чесночным соусом', 150.00, 1, 1),
 ('Салат Цезарь', 'Классический салат с курицей', 350.00, 1, 2),
@@ -136,30 +131,36 @@ INSERT OR IGNORE INTO dishes (name, description, price, is_available, category_i
 ('Морс ягодный', 'Собственного приготовления', 100.00, 1, 6),
 ('Кофе Капучино', 'Классический кофейный напиток', 180.00, 0, 6);
 
--- Заказы
 INSERT OR IGNORE INTO orders (order_date, table_number, employee_id, status_id) VALUES 
 ('2026-10-01 13:15:00', 3, 1, 5),
 ('2026-10-02 12:00:00', 5, 2, 2),
 ('2026-10-02 12:30:00', 12, 1, 5);
 
--- Состав заказов
 INSERT OR IGNORE INTO order_items (order_id, dish_id, quantity, price_at_order) VALUES 
-(1, 1, 2, 150.00),
-(1, 3, 1, 400.00),
-(2, 2, 1, 350.00),
-(2, 6, 2, 450.00),
-(3, 5, 1, 550.00),
-(3, 7, 2, 250.00),
-(3, 8, 3, 100.00);
+(1, 1, 2, 150.00), (1, 3, 1, 400.00),
+(2, 2, 1, 350.00), (2, 6, 2, 450.00),
+(3, 5, 1, 550.00), (3, 7, 2, 250.00), (3, 8, 3, 100.00);
 ```
 
 ---
 
-## 4. Разработка SQL-запросов для обработки и получения данных
+## 4. Сценарии тестирования и верификации БД (Тест-кейсы)
 
-Данные выборки предназначены для интеграции в C#-приложение для реализации функций поиска и аналитической отчетности администрации кафе.
+Инструкции предназначены для проверки работоспособности ограничений целостности и выполнения аналитических выборок.
 
-### 4.1 Фильтрация и поиск доступных блюд
+### Тест-кейс 1: Проверка ограничений CHECK (Ожидается аппаратная ошибка СУБД)
+```sql
+-- А. Попытка установить отрицательную цену (Ошибка chk_dish_price)
+INSERT INTO dishes (name, price, category_id) VALUES ('Невалидный суп', -50.00, 3);
+
+-- Б. Номер стола вне диапазона 1-12 (Ошибка chk_table_number)
+INSERT INTO orders (table_number, employee_id, status_id) VALUES (25, 1, 1);
+
+-- В. Отрицательный объем порций (Ошибка chk_item_quantity)
+INSERT INTO order_items (order_id, dish_id, quantity, price_at_order) VALUES (1, 1, -5, 150.00);
+```
+
+### Тест-кейс 2: Фильтрация меню и поиск доступных блюд
 ```sql
 SELECT d.id, d.name, d.price, c.name AS category_name 
 FROM dishes d
@@ -170,14 +171,11 @@ WHERE d.is_available = 1
 ORDER BY d.price ASC;
 ```
 
-### 4.2 Просмотр активных заказов с расчетом суммы чека
+### Тест-кейс 3: Мониторинг заказов с автоматическим подсчетом суммы чека
 ```sql
 SELECT 
-    o.id AS order_number,
-    o.order_date,
-    o.table_number,
-    e.full_name AS waiter,
-    s.name AS status,
+    o.id AS order_number, o.order_date, o.table_number,
+    e.full_name AS waiter, s.name AS status,
     COALESCE(SUM(oi.quantity * oi.price_at_order), 0) AS total_price
 FROM orders o
 JOIN employees e ON o.employee_id = e.id
@@ -187,19 +185,7 @@ GROUP BY o.id
 ORDER BY o.order_date DESC;
 ```
 
-### 4.3 Вывод детализации (состава) выбранного заказа
-```sql
-SELECT 
-    d.name AS dish_name,
-    oi.quantity,
-    oi.price_at_order AS price_per_item,
-    (oi.quantity * oi.price_at_order) AS item_total
-FROM order_items oi
-JOIN dishes d ON oi.dish_id = d.id
-WHERE oi.order_id = 3;
-```
-
-### 4.4 Аналитический отчет: Рейтинг популярности блюд
+### Тест-кейс 4: Аналитика популярности меню (Рейтинг продаж)
 ```sql
 SELECT 
     d.name AS dish_name,
@@ -208,17 +194,15 @@ SELECT
 FROM order_items oi
 JOIN dishes d ON oi.dish_id = d.id
 JOIN orders o ON oi.order_id = o.id
-WHERE o.status_id = 5 
+WHERE o.status_id = 5
 GROUP BY d.id
 ORDER BY total_portions_sold DESC;
 ```
 
----
+## 6. Техническое окружение и переносимость БД
+Для обеспечения изоляции проекта и его гарантированного запуска на любом рабочем месте развернута следующая инфраструктура:
+1. **Виртуальное окружение**: Инициализировано изолированное окружение в каталоге `.venv/`.
+2. **Файл конфигурации зависимостей**: Создан стандартный реестр компонентов `requirements.txt`.
+3. **Физический файл данных**: Готовая реляционная база данных со структурой и тестовыми строками зафиксирована непосредственно в репозитории по пути: `database/capycafe.db`. 
 
-## 5. Проверка корректности структуры и целостности данных
-Успешное выполнение скрипта в среде разработки подтвердило:
-1. Корректность генерации связей типа «Один-ко-многим».
-2. Функционирование ограничений (`CHECK CONSTRAINTS`), блокирующих занесение некорректных цен или номеров столов вне лимита 1-12.
-3. Работоспособность механизмов защиты `ON DELETE RESTRICT`, предотвращающих случайное удаление номенклатуры, связанной с историей архивных заказов.
-
-Файл базы данных **`capycafe.db`** успешно сформирован и инициализирован в корневом каталоге проекта.
+Развертывание и верификация базы данных **Этапа 4 успешно завершены**. Локальный файл базы данных полностью автономен, защищен правилами `.gitignore` от системных транзакционных блокировок и готов к программному подключению.
