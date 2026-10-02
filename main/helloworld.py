@@ -1,2 +1,4 @@
-x="Hello World"
-print(x)
+x="Hello"
+y=" World"
+z="!"
+print(x+y+z)

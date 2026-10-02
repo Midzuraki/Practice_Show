@@ -1,27 +1,30 @@
-import sqlite3
 import os
+import sqlite3
+from pathlib import Path
 
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-BASE_DIR = CURRENT_DIR
-while os.path.basename(BASE_DIR) != "practice3" and BASE_DIR != os.path.dirname(BASE_DIR):
-    BASE_DIR = os.path.dirname(BASE_DIR)
+def get_db_path():
+    for parent in Path(__file__).resolve().parents:
+        if parent.name == "database":
+            return parent / "capycafe.db"
+    raise FileNotFoundError("Не удалось найти папку 'database' в структуре проекта")
 
-DB_PATH = os.path.join(BASE_DIR, "database", "capycafe.db")
+db_path = get_db_path()
 
 
 def populate_database():
     print("--- ЗАПУСК ЗАПОЛНЕНИЯ БАЗЫ ДАННЫХ ---")
 
-    # Порядок вставки строгий: сначала справочники, затем транзакции
+    # ИССПРАВЛЕНО: Везде добавлен "OR IGNORE". Если id или UNIQUE-поле уже есть в базе,
+    # скрипт просто пропустит эту строку и пойдет дальше вместо падения.
     insert_query = """
     PRAGMA foreign_keys = ON;
 
     -- 1. Категории
-    INSERT INTO categories (id, name) VALUES 
+    INSERT OR IGNORE INTO categories (id, name) VALUES 
     (1, 'Закуски'), (2, 'Салаты'), (3, 'Супы'), (4, 'Горячие блюда'), (5, 'Десерты'), (6, 'Напитки');
 
     -- 2. Сотрудники
-    INSERT INTO employees (id, full_name, position) VALUES 
+    INSERT OR IGNORE INTO employees (id, full_name, position) VALUES 
     (1, 'Иванов Иван Иванович', 'Официант'),
     (2, 'Петрова Анна Сергеевна', 'Официант'),
     (3, 'Сидоров Алексей Петрович', 'Повар'),
@@ -29,11 +32,11 @@ def populate_database():
     (5, 'Смирнова Елена Николаевна', 'Администратор');
 
     -- 3. Статусы заказов
-    INSERT INTO order_statuses (id, name) VALUES 
+    INSERT OR IGNORE INTO order_statuses (id, name) VALUES 
     (1, 'Принят'), (2, 'Готовится'), (3, 'Готов'), (4, 'Выдан'), (5, 'Оплачен'), (6, 'Отменён');
 
     -- 4. Блюда меню
-    INSERT INTO dishes (id, name, description, price, is_available, category_id) VALUES 
+    INSERT OR IGNORE INTO dishes (id, name, description, price, is_available, category_id) VALUES 
     (1, 'Гренки чесночные', 'Ржаные гренки с чесночным соусом', 150.00, 1, 1),
     (2, 'Салат Цезарь', 'Классический салат с курицей', 350.00, 1, 2),
     (3, 'Уха Астраханская', 'Традиционный суп из местной рыбы', 400.00, 1, 3),
@@ -45,13 +48,14 @@ def populate_database():
     (9, 'Кофе Капучино', 'Классический кофейный напиток', 180.00, 0, 6);
 
     -- 5. Заказы
-    INSERT INTO orders (id, order_date, table_number, employee_id, status_id) VALUES 
+    INSERT OR IGNORE INTO orders (id, order_date, table_number, employee_id, status_id) VALUES 
     (1, '2026-10-01 13:15:00', 3, 1, 5),
     (2, '2026-10-02 12:00:00', 5, 2, 2),
     (3, '2026-10-02 12:30:00', 12, 1, 5);
 
     -- 6. Позиции заказов (Состав чеков)
-    INSERT INTO order_items (order_id, dish_id, quantity, price_at_order) VALUES 
+    -- Здесь UNIQUE(order_id, dish_id), поэтому OR IGNORE сработает при дублировании блюда в чеке
+    INSERT OR IGNORE INTO order_items (order_id, dish_id, quantity, price_at_order) VALUES 
     (1, 1, 2, 150.00),
     (1, 3, 1, 400.00),
     (2, 2, 1, 350.00),
@@ -61,8 +65,9 @@ def populate_database():
     (3, 8, 3, 100.00);
     """
 
+    conn = None
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
         cursor.executescript(insert_query)
         conn.commit()

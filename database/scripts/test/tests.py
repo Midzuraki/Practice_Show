@@ -1,16 +1,18 @@
 import os
 import sqlite3
+from pathlib import Path
 
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-BASE_DIR = CURRENT_DIR
-while os.path.basename(BASE_DIR) != "practice3" and BASE_DIR != os.path.dirname(BASE_DIR):
-    BASE_DIR = os.path.dirname(BASE_DIR)
+def get_db_path():
+    for parent in Path(__file__).resolve().parents:
+        if parent.name == "database":
+            return parent / "capycafe.db"
+    raise FileNotFoundError("Не удалось найти папку 'database' в структуре проекта")
 
-DB_PATH = os.path.join(BASE_DIR, "database", "capycafe.db")
+db_path = get_db_path()
 
 def run_test(title, query, expect_error=False):
     print(f"--- {title} ---")
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(db_path)
     conn.execute("PRAGMA foreign_keys = ON;")
     cursor = conn.cursor()
     try:
@@ -36,8 +38,8 @@ def run_test(title, query, expect_error=False):
     print("-" * 50)
 
 if __name__ == "__main__":
-    if not os.path.exists(DB_PATH):
-        print(f"Критическая ошибка: Файл базы данных не найден по пути:\n{DB_PATH}")
+    if not os.path.exists(db_path):
+        print(f"Критическая ошибка: Файл базы данных не найден по пути:\n{db_path}")
         exit(1)
 
     print("ЗАПУСК ВЕРИФИКАЦИИ И ТЕСТИРОВАНИЯ СТРУКТУРЫ БД CAPYCAFE.DB")

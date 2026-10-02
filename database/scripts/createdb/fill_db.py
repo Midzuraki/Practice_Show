@@ -1,6 +1,14 @@
+import os
 import sqlite3
+from pathlib import Path
 
-db_path = r"/database/capycafe.db"
+def get_db_path():
+    for parent in Path(__file__).resolve().parents:
+        if parent.name == "database":
+            return parent / "capycafe.db"
+    raise FileNotFoundError("Не удалось найти папку 'database' в структуре проекта")
+
+db_path = get_db_path()
 
 # Чистый SQL-код создания структуры
 sql_query = """

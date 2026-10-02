@@ -1,18 +1,21 @@
-import sqlite3
 import os
+import sqlite3
+from pathlib import Path
 
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-BASE_DIR = CURRENT_DIR
-while os.path.basename(BASE_DIR) != "practice3" and BASE_DIR != os.path.dirname(BASE_DIR):
-    BASE_DIR = os.path.dirname(BASE_DIR)
+def get_db_path():
+    for parent in Path(__file__).resolve().parents:
+        if parent.name == "database":
+            return parent / "capycafe.db"
+    raise FileNotFoundError("Не удалось найти папку 'database' в структуре проекта")
 
-DB_PATH = os.path.join(BASE_DIR, "database", "capycafe.db")
+db_path = get_db_path()
+
 
 def add_new_dish():
     print("--- ДОБАВЛЕНИЕ НОВОГО БЛЮДА В МЕНЮ ---")
 
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
 
         # Вывод существующих категорий
