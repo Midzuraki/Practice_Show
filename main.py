@@ -1,6 +1,0 @@
-z = input()
-print("Россия")
-zz = input()
-print("Путин")
-zzz = input()
-print("Победа.")
