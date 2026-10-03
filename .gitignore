@@ -13,3 +13,4 @@ ENV/
 .pytest_cache/
 *.log
 *.db
+*.odt
