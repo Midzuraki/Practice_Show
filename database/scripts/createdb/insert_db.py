@@ -3,6 +3,7 @@ import sqlite3
 from pathlib import Path
 
 def get_db_path():
+    # Ищем папку 'database' строго поднимаясь вверх от текущего скрипта
     for parent in Path(__file__).resolve().parents:
         if parent.name == "database":
             return parent / "capycafe.db"
@@ -65,39 +66,6 @@ CREATE TABLE IF NOT EXISTS order_items (
 );
 """
 
-try:
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-
-    # Запускаем создание структуры
-    cursor.executescript(sql_query)
-    conn.commit()
-
-    print("УСПЕХ: Все 6 таблиц успешно созданы в базе данных!")
-
-    # Проверяем, видит ли их сама система
-    cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-    tables = cursor.fetchall()
-    print("\nСписок созданных таблиц в базе:")
-    for t in tables:
-        print(f" - {t[0]}")
-
-except sqlite3.Error as e:
-    print(f"\n Текст ошибки:\n{e}")
-
-finally:
-    if conn:
-        conn.close()
-
-def get_db_path():
-    for parent in Path(__file__).resolve().parents:
-        if parent.name == "database":
-            return parent / "capycafe.db"
-    raise FileNotFoundError("Не удалось найти папку 'database' в структуре проекта")
-
-db_path = get_db_path()
-
-
 def populate_database():
     insert_query = """
     PRAGMA foreign_keys = ON;
@@ -137,7 +105,6 @@ def populate_database():
     (3, '2026-10-02 12:30:00', 12, 1, 5);
 
     -- 6. Позиции заказов (Состав чеков)
-    -- Здесь UNIQUE(order_id, dish_id), поэтому OR IGNORE сработает при дублировании блюда в чеке
     INSERT OR IGNORE INTO order_items (order_id, dish_id, quantity, price_at_order) VALUES 
     (1, 1, 2, 150.00),
     (1, 3, 1, 400.00),
@@ -154,13 +121,39 @@ def populate_database():
         cursor = conn.cursor()
         cursor.executescript(insert_query)
         conn.commit()
-        print("Данные успешно записаны в базу. ")
+        print("Данные успешно записаны в базу.")
     except sqlite3.Error as e:
         print(f"Ошибка при заполнении таблиц: {e}")
     finally:
         if conn:
             conn.close()
 
+def main():
+    conn = None
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        # Создаем структуру таблиц
+        cursor.executescript(sql_query)
+        conn.commit()
+        print("УСПЕХ: Все 6 таблиц успешно созданы в базе данных!")
+
+        # Вызываем наполнение данными
+        populate_database()
+
+        # Проверка структуры в конце
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+        tables = cursor.fetchall()
+        print("\nСписок созданных таблиц в базе:")
+        for t in tables:
+            print(f" - {t[0]}")
+
+    except sqlite3.Error as e:
+        print(f"\n Текст ошибки:\n{e}")
+    finally:
+        if conn:
+            conn.close()
 
 if __name__ == "__main__":
-    populate_database()
+    main()

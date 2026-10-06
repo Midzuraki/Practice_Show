@@ -45,7 +45,8 @@ def show_categories_ui():
         print("Ошибка: в базе нет категорий.")
         return set()
     print("\nДоступные категории: " + "".join(f"\n  {cid} - {name}" for cid, name in categories))
-    return {row for row in categories}
+    return {row[0] for row in categories}
+
 
 
 @run_safe_ui

@@ -1,8 +1,13 @@
 import sqlite3
 from pathlib import Path
 
-# Поднимаемся на 3 уровня вверх от этого файла, чтобы попасть в папку database
-DB_PATH = Path(__file__).resolve().parents[2] / "capycafe.db"
+def _find_db():
+    for parent in Path(__file__).resolve().parents:
+        if parent.name == "database":
+            return parent / "capycafe.db"
+    return Path(__file__).resolve().parents[2] / "capycafe.db"
+
+DB_PATH = _find_db()
 
 
 def get_connection():
