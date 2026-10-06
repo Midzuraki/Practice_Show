@@ -18,9 +18,9 @@ def run_test(title, query, expect_error=False):
     try:
         cursor.execute(query)
         if expect_error:
-            print("СТАТУС: Ошибка (База данных пропустила некорректные данные)")
+            print("Ошибка (База данных пропустила некорректные данные)")
         else:
-            print("СТАТУС: Успешно. Результат выборки:")
+            print("Успешно. Результат выборки:")
             rows = cursor.fetchall()
             if not rows:
                 print("   [Данные успешно изменены или результат пуст]")
@@ -30,9 +30,9 @@ def run_test(title, query, expect_error=False):
         conn.commit()
     except sqlite3.Error as e:
         if expect_error:
-            print(f"СТАТУС: Успешно (Ограничение СУБД сработало корректно)\n   Детали: {e}")
+            print(f"Успешно (Ограничение СУБД сработало корректно)\n   Детали: {e}")
         else:
-            print(f"СТАТУС: Ошибка (Непредвиденное исключение: {e})")
+            print(f"Ошибка (Непредвиденное исключение: {e})")
     finally:
         conn.close()
     print("-" * 50)

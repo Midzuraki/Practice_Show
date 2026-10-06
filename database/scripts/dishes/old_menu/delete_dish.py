@@ -9,7 +9,7 @@ while os.path.basename(BASE_DIR) != "practice3" and BASE_DIR != os.path.dirname(
 DB_PATH = os.path.join(BASE_DIR, "database", "capycafe.db")
 
 def delete_dish():
-    print("--- УДАЛЕНИЕ БЛЮДА ИЗ МЕНЮ ---")
+    print("--- УДАЛЕНИЕ БЛЮДА ИЗ МЕНЮ --- ")
 
     dish_id = input("Введите ID блюда для удаления: ")
     if not dish_id.isdigit():

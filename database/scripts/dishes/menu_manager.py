@@ -26,7 +26,7 @@ def get_categories(cursor):
 
 
 def print_categories(categories):
-    print("\nДоступные категории:")
+    print("\nДоступные категории: ")
     for category_id, name in categories:
         print(f"  {category_id} - {name}")
 

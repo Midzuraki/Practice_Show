@@ -22,7 +22,7 @@ def add_new_dish():
         cursor.execute("SELECT id, name FROM categories;")
         categories = cursor.fetchall()
 
-        print("\nДоступные категории:")
+        print("\nДоступные категории: ")
         for cat in categories:
             print(f"  ID: {cat[0]} - {cat[1]}")
 

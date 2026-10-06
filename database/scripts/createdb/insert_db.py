@@ -154,7 +154,7 @@ def populate_database():
         cursor = conn.cursor()
         cursor.executescript(insert_query)
         conn.commit()
-        print("Данные успешно записаны в базу.")
+        print("Данные успешно записаны в базу. ")
     except sqlite3.Error as e:
         print(f"Ошибка при заполнении таблиц: {e}")
     finally:
