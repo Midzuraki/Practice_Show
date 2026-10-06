@@ -10,7 +10,6 @@ def get_db_path():
 
 db_path = get_db_path()
 
-# Чистый SQL-код создания структуры
 sql_query = """
 PRAGMA foreign_keys = ON;
 
@@ -66,8 +65,6 @@ CREATE TABLE IF NOT EXISTS order_items (
 );
 """
 
-print("--- Попытка создания таблиц в файле capycafe.db ---")
-
 try:
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
@@ -86,7 +83,7 @@ try:
         print(f" - {t[0]}")
 
 except sqlite3.Error as e:
-    print(f"\n❌ ОШИБКА КРИТИЧЕСКАЯ: База отклонила скрипт. Текст ошибки:\n{e}")
+    print(f"\n Текст ошибки:\n{e}")
 
 finally:
     if conn:
@@ -102,10 +99,6 @@ db_path = get_db_path()
 
 
 def populate_database():
-    print("--- ЗАПУСК ЗАПОЛНЕНИЯ БАЗЫ ДАННЫХ ---")
-
-    # ИССПРАВЛЕНО: Везде добавлен "OR IGNORE". Если id или UNIQUE-поле уже есть в базе,
-    # скрипт просто пропустит эту строку и пойдет дальше вместо падения.
     insert_query = """
     PRAGMA foreign_keys = ON;
 
@@ -161,13 +154,12 @@ def populate_database():
         cursor = conn.cursor()
         cursor.executescript(insert_query)
         conn.commit()
-        print("СТАТУС: Демонстрационные данные успешно записаны в базу.")
+        print("Данные успешно записаны в базу.")
     except sqlite3.Error as e:
-        print(f"СТАТУС: Ошибка при заполнении таблиц: {e}")
+        print(f"Ошибка при заполнении таблиц: {e}")
     finally:
         if conn:
             conn.close()
-            print("Соединение закрыто.")
 
 
 if __name__ == "__main__":
