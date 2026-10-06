@@ -3,9 +3,12 @@ import sqlite3
 import subprocess
 from pathlib import Path
 
-# Правильный корень проекта (поднимаемся из папки main/ на уровень выше)
+# Поднимаемся из папки main/ на уровень выше в корень всего проекта
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-sys.path.append(str(PROJECT_ROOT / "database" / "scripts" / "dishes"))
+
+# Собираем точный путь к папке, где лежит menu_manager.py
+SCRIPTS_DIR = PROJECT_ROOT / "database" / "scripts" / "dishes"
+sys.path.append(str(SCRIPTS_DIR))
 
 import menu_manager
 
