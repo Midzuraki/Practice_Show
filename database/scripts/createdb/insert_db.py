@@ -73,13 +73,9 @@ def populate_database():
     INSERT OR IGNORE INTO categories (id, name) VALUES 
     (1, 'Закуски'), (2, 'Салаты'), (3, 'Супы'), (4, 'Горячие блюда'), (5, 'Десерты'), (6, 'Напитки');
 
-    -- 2. Сотрудники
+    -- 2. Сотрудники (Только Администратор в первую очередь)
     INSERT OR IGNORE INTO employees (id, full_name, position) VALUES 
-    (1, 'Иванов Иван Иванович', 'Официант'),
-    (2, 'Петрова Анна Сергеевна', 'Официант'),
-    (3, 'Сидоров Алексей Петрович', 'Повар'),
-    (4, 'Кузнецов Дмитрий Владимирович', 'Бармен'),
-    (5, 'Смирнова Елена Николаевна', 'Администратор');
+    (1, 'Смирнова Елена Николаевна', 'Администратор');
 
     -- 3. Статусы заказов
     INSERT OR IGNORE INTO order_statuses (id, name) VALUES 
@@ -97,21 +93,21 @@ def populate_database():
     (8, 'Морс ягодный', 'Собственного приготовления', 100.00, 1, 6),
     (9, 'Кофе Капучино', 'Классический кофейный напиток', 180.00, 0, 6);
 
-    -- 5. Заказы
-    INSERT OR IGNORE INTO orders (id, order_date, table_number, employee_id, status_id) VALUES 
-    (1, '2026-10-01 13:15:00', 3, 1, 5),
-    (2, '2026-10-02 12:00:00', 5, 2, 2),
-    (3, '2026-10-02 12:30:00', 12, 1, 5);
+    -- 5. Заказы (Закомментированы, так как привязаны к удаленным официантам)
+    -- INSERT OR IGNORE INTO orders (id, order_date, table_number, employee_id, status_id) VALUES 
+    -- (1, '2026-10-01 13:15:00', 3, 1, 5),
+    -- (2, '2026-10-02 12:00:00', 5, 2, 2),
+    -- (3, '2026-10-02 12:30:00', 12, 1, 5);
 
-    -- 6. Позиции заказов (Состав чеков)
-    INSERT OR IGNORE INTO order_items (order_id, dish_id, quantity, price_at_order) VALUES 
-    (1, 1, 2, 150.00),
-    (1, 3, 1, 400.00),
-    (2, 2, 1, 350.00),
-    (2, 6, 2, 450.00),
-    (3, 5, 1, 550.00),
-    (3, 7, 2, 250.00),
-    (3, 8, 3, 100.00);
+    -- 6. Позиции заказов (Закомментированы)
+    -- INSERT OR IGNORE INTO order_items (order_id, dish_id, quantity, price_at_order) VALUES 
+    -- (1, 1, 2, 150.00),
+    -- (1, 3, 1, 400.00),
+    -- (2, 2, 1, 350.00),
+    -- (2, 6, 2, 450.00),
+    -- (3, 5, 1, 550.00),
+    -- (3, 7, 2, 250.00),
+    -- (3, 8, 3, 100.00);
     """
 
     conn = None
@@ -133,15 +129,12 @@ def main():
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
 
-        # Создаем структуру таблиц
         cursor.executescript(sql_query)
         conn.commit()
         print("УСПЕХ: Все 6 таблиц успешно созданы в базе данных!")
 
-        # Вызываем наполнение данными
         populate_database()
 
-        # Проверка структуры в конце
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
         tables = cursor.fetchall()
         print("\nСписок созданных таблиц в базе:")
