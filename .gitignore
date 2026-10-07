@@ -23,7 +23,6 @@ build/
 dist/
 *.spec
 __pycache__/
-CapyCafe/
 build/
 dist/
 *.spec
