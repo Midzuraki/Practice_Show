@@ -19,3 +19,7 @@ dist/
 .DS_Store
 Thumbs.db
 *.db
+build/
+dist/
+*.spec
+__pycache__/

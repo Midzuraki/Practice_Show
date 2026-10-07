@@ -1,23 +1,25 @@
 import sys
 import sqlite3
-import subprocess
 from pathlib import Path
 
-# Универсальное определение путей для работы в IDE и в собранном .exe
+
 if getattr(sys, 'frozen', False):
-    PROJECT_ROOT = Path(sys.executable).resolve().parent.parent
+    exe_dir = Path(sys.argv[0]).resolve().parent
+    DB_PATH = exe_dir.parent / "database" / "capycafe.db"
 else:
-    PROJECT_ROOT = next((p for p in Path(__file__).resolve().parents if (p / "database").exists()), Path(__file__).resolve().parent.parent)
+    PROJECT_ROOT = Path(__file__).resolve().parent.parent
+    DB_PATH = PROJECT_ROOT / "database" / "capycafe.db"
 
-# Подключаем пути к модулям СУБД
-for folder in ["dishes", "authorization", "orders"]:
-    sys.path.append(str(PROJECT_ROOT / "database" / "scripts" / folder))
+from database.scripts.dishes import menu_manager
+from database.scripts.authorization import user_manager
+from database.scripts.orders import order_manager
 
-import menu_manager
-import user_manager
-import order_manager
+menu_manager.DB_PATH = DB_PATH
+user_manager.DB_PATH = DB_PATH
+order_manager.DB_PATH = DB_PATH
 
 CURRENT_USER = None  # (id, full_name, position)
+
 
 def ask(prompt, default=None, is_num=False, is_float=False):
     val = input(prompt).strip()
@@ -185,17 +187,18 @@ def ui_change_status():
 def main():
     global CURRENT_USER
 
-    # 1. Разделяем пути для базы (снаружи) и для SQL-схем (внутри .exe)
+    # 1. Жесткое разделение путей для работы в IDE и в скомпилированном .exe
     if getattr(sys, 'frozen', False):
-        # Если это .exe, схемы лежат во внутренней папке _internal/database
-        BASE_SQL_DIR = Path(sys._MEIPASS) / "database"
-        db_file_path = Path(sys.executable).resolve().parent.parent / "database" / "capycafe.db"
+        exe_dir = Path(sys.argv[0]).resolve().parent
+        db_file_path = exe_dir.parent / "database" / "capycafe.db"
     else:
-        # Если запускаем в IDE
-        BASE_SQL_DIR = PROJECT_ROOT / "database"
-        db_file_path = PROJECT_ROOT / "database" / "capycafe.db"
+        db_file_path = DB_PATH
 
-    # 2. Проверяем готовность базы данных
+    # Компактные встроенные SQL-скрипты автоматического развертывания структуры и данных кафе
+    sql_tables = "PRAGMA foreign_keys = ON; CREATE TABLE IF NOT EXISTS categories (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE); CREATE TABLE IF NOT EXISTS employees (id INTEGER PRIMARY KEY AUTOINCREMENT, full_name TEXT NOT NULL, position TEXT NOT NULL); CREATE TABLE IF NOT EXISTS order_statuses (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE); CREATE TABLE IF NOT EXISTS dishes (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, description TEXT, price REAL NOT NULL, is_available INTEGER NOT NULL DEFAULT 1, category_id INTEGER NOT NULL, FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE RESTRICT, CONSTRAINT chk_dish_price CHECK (price > 0)); CREATE TABLE IF NOT EXISTS orders (id INTEGER PRIMARY KEY AUTOINCREMENT, order_date TEXT NOT NULL DEFAULT (datetime('now', 'localtime')), table_number INTEGER NOT NULL, employee_id INTEGER NOT NULL, status_id INTEGER NOT NULL, FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE RESTRICT, FOREIGN KEY (status_id) REFERENCES order_statuses(id) ON DELETE RESTRICT, CONSTRAINT chk_table_number CHECK (table_number BETWEEN 1 AND 12)); CREATE TABLE IF NOT EXISTS order_items (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id INTEGER NOT NULL, dish_id INTEGER NOT NULL, quantity INTEGER NOT NULL, price_at_order REAL NOT NULL, FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE, FOREIGN KEY (dish_id) REFERENCES dishes(id) ON DELETE RESTRICT, CONSTRAINT chk_item_quantity CHECK (quantity > 0), CONSTRAINT chk_item_price CHECK (price_at_order > 0), UNIQUE(order_id, dish_id));"
+    sql_data = "PRAGMA foreign_keys = ON; INSERT OR IGNORE INTO categories (id, name) VALUES (1, 'Закуски'), (2, 'Салаты'), (3, 'Супы'), (4, 'Горячие блюда'), (5, 'Десерты'), (6, 'Напитки'); INSERT OR IGNORE INTO employees (id, full_name, position) VALUES (1, 'Иванов Иван Иванович', 'Официант'), (2, 'Петрова Анна Сергеевна', 'Официант'), (3, 'Сидоров Алексей Петрович', 'Повар'), (4, 'Кузнецов Дмитрий Владимирович', 'Бармен'), (5, 'Смирнова Елена Николаевна', 'Администратор'); INSERT OR IGNORE INTO order_statuses (id, name) VALUES (1, 'Принят'), (2, 'Готовится'), (3, 'Готов'), (4, 'Выдан'), (5, 'Оплачен'), (6, 'Отменён'); INSERT OR IGNORE INTO dishes (id, name, description, price, is_available, category_id) VALUES (1, 'Гренки чесночные', 'Ржаные гренки с чесночным соусом', 150.00, 1, 1), (2, 'Салат Цезарь', 'Классический салат с курицей', 350.00, 1, 2), (3, 'Уха Астраханская', 'Традиционный суп из местной рыбы', 400.00, 1, 3), (4, 'Борщ', 'Классический мясной борщ со сметаной', 300.00, 1, 3), (5, 'Стейк из судака', 'Судак на гриле с овощами', 550.00, 1, 4), (6, 'Котлеты по-киевски', 'С картофельным пюре', 450.00, 1, 4), (7, 'Торт Наполеон', 'Домашний слоеный торт', 250.00, 1, 5), (8, 'Морс ягодный', 'Собственного приготовления', 100.00, 1, 6), (9, 'Кофе Капучино', 'Классический кофейный напиток', 180.00, 0, 6); INSERT OR IGNORE INTO orders (id, order_date, table_number, employee_id, status_id) VALUES (1, '2026-10-01 13:15:00', 3, 1, 5), (2, '2026-10-07 19:30:00', 5, 2, 2), (3, '2026-10-07 20:00:00', 12, 1, 1); INSERT OR IGNORE INTO order_items (order_id, dish_id, quantity, price_at_order) VALUES (1, 1, 2, 150.00), (1, 3, 1, 400.00), (2, 2, 1, 350.00), (2, 6, 2, 450.00), (3, 5, 1, 550.00), (3, 7, 2, 250.00), (3, 8, 3, 100.00);"
+
+    # 2. Проверяем не просто наличие файла, а наличие таблиц в СУБД
     db_is_ready = False
     if db_file_path.exists():
         try:
@@ -205,39 +208,27 @@ def main():
         except sqlite3.Error:
             pass
 
-    # 3. Автоматическая сборка, если база пуста или отсутствует
+    # 3. Автоматическая автосборка СУБД, если база пуста или отсутствует
     if not db_is_ready:
-        print("\nБаза данных не инициализирована. Сборка СУБД из конфигурационных файлов...")
+        print("\nБаза данных не инициализирована. Запуск встроенной автосборки СУБД...")
         try:
             db_file_path.parent.mkdir(parents=True, exist_ok=True)
-
-            schema_file = BASE_SQL_DIR / "schema.sql"
-            data_file = BASE_SQL_DIR / "data.sql"
-
-            if not schema_file.exists() or not data_file.exists():
-                print(f"Критическая ошибка: Не найдены файлы конфигурации SQL в {BASE_SQL_DIR}")
-                input("\nНажмите Enter для выхода...");
-                return
-
-            schema_sql = schema_file.read_text(encoding="utf-8")
-            data_sql = data_file.read_text(encoding="utf-8")
-
             with sqlite3.connect(db_file_path) as conn:
-                conn.executescript(schema_sql)
-                conn.executescript(data_sql)
-            print("УСПЕХ: База данных 'capycafe.db' успешно сгенерирована!")
+                conn.executescript(sql_tables)
+                conn.executescript(sql_data)
+            print(f"УСПЕХ: База данных успешно сгенерирована по пути:\n -> {db_file_path}")
         except Exception as e:
             print(f"Критическая ошибка автосборки базы: {e}")
-            input("\nНажмите Enter для выхода...");
+            input("\nНажмите Enter для выхода...")
             return
     else:
-        print("База данных успешно обнаружена и проверена.")
+        print(f"База данных успешно обнаружена и проверена:\n -> {db_file_path}")
 
     # 4. Аутентификация сотрудника
     while not CURRENT_USER:
         login_screen()
 
-    role = CURRENT_USER
+    role = CURRENT_USER[2]
 
     admin_menu = {
         "1": ("Просмотр структуры БД (Сырые таблицы)", show_db_ui),
@@ -250,7 +241,7 @@ def main():
         "8": ("Список сотрудников", list_users_formatted_ui),
         "9": ("Оформить новый заказ", lambda: ui_add_entity("order")),
         "10": ("Удалить заказ", lambda: ui_delete_entity("order")),
-        "11": ("Просмотреть active заказы", ui_list_orders),
+        "11": ("Просмотреть активные заказы", ui_list_orders),
         "12": ("Изменить статус заказа", ui_change_status)
     }
     waiter_menu = {
@@ -261,7 +252,7 @@ def main():
     }
     kitchen_menu = {
         "1": ("Просмотреть Меню кафе", ui_show_cafe_menu),
-        "2": ("Просмотреть активные заказы", ui_list_orders),
+        "2": ("Просмотреть active заказы", ui_list_orders),
         "3": ("Изменить статус заказа (Отметка о готовности)", ui_change_status)
     }
 
@@ -275,17 +266,16 @@ def main():
         menu = {"1": ("Просмотреть Меню кафе", ui_show_cafe_menu)}
 
     while True:
-        print(f"\n=== МЕНЮ ({CURRENT_USER} | Роль: {role}) ===")
-        for k, v in menu.items(): print(f"{k}. {v}")
+        print(f"\n=== МЕНЮ ({CURRENT_USER[1]} | Роль: {role}) ===")
+        for k, v in menu.items(): print(f"{k}. {v[0]}")
         print("0. Выход")
 
         ch = input("\nВыберите действие: ").strip()
         if ch == "0": break
         if ch in menu:
-            menu[ch]()
+            menu[ch][1]()
         else:
             print("Ошибка: Пункт меню недоступен.")
-
 
 if __name__ == "__main__":
     main()
