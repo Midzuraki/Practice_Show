@@ -3,7 +3,6 @@ import sqlite3
 from pathlib import Path
 
 def get_db_path():
-    # Ищем папку 'database' строго поднимаясь вверх от текущего скрипта
     for parent in Path(__file__).resolve().parents:
         if parent.name == "database":
             return parent / "capycafe.db"

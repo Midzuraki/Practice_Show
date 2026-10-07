@@ -29,7 +29,6 @@ def delete_dish():
             print("Ошибка: Блюдо с таким ID не найдено в меню.")
             return
 
-        # Удаление записи
         cursor.execute("DELETE FROM dishes WHERE id = ?;", (dish_id,))
         conn.commit()
         print(f"\nУспешно: Блюдо '{dish[0]}' (ID: {dish_id}) удалено из базы данных.")

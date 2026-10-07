@@ -18,7 +18,6 @@ def add_new_dish():
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
 
-        # Вывод существующих категорий
         cursor.execute("SELECT id, name FROM categories;")
         categories = cursor.fetchall()
 

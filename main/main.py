@@ -3,17 +3,14 @@ import sqlite3
 import subprocess
 from pathlib import Path
 
-# Поднимаемся из папки main/ на уровень выше в корень всего проекта
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-# Собираем точный путь к папке, где лежит menu_manager.py
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = PROJECT_ROOT / "database" / "scripts" / "dishes"
 sys.path.append(str(SCRIPTS_DIR))
 
 import menu_manager
 
 
-# --- Вспомогательные функции для сокращения кода UI ---
 def ask_input(prompt, default=None, is_num=False, is_float=False):
     val = input(prompt).strip()
     if not val and default is not None:
