@@ -3,13 +3,20 @@ import sqlite3
 import subprocess
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+# Определение корня проекта относительно запускаемого файла
+EXE_DIR = Path(sys.argv[0]).resolve().parent
+if EXE_DIR.name == "main" or EXE_DIR.name == "CapyCafe" or EXE_DIR.name == "_internal":
+    PROJECT_ROOT = EXE_DIR.parent
+else:
+    PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
 for folder in ["dishes", "authorization", "orders"]:
     sys.path.append(str(PROJECT_ROOT / "database" / "scripts" / folder))
 
 import menu_manager
 import user_manager
 import order_manager
+
 
 CURRENT_USER = None  # (id, full_name, position)
 
