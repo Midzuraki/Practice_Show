@@ -71,3 +71,14 @@ def get_all_tables_data():
             columns = [desc[0] for desc in cursor.description]
             db_data[table_name] = (columns, rows)
         return db_data
+
+def get_active_menu():
+    with get_connection() as conn:
+        return conn.execute("""
+            SELECT d.id, d.name, d.description, d.price, c.name 
+            FROM dishes d
+            JOIN categories c ON d.category_id = c.id
+            WHERE d.is_available = 1
+            ORDER BY c.id, d.name
+        """).fetchall()
+
