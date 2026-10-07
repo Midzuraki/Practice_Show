@@ -184,10 +184,18 @@ def ui_change_status():
 
 def main():
     global CURRENT_USER
-    db_dir = PROJECT_ROOT / "database"
-    db_file_path = db_dir / "capycafe.db"
 
-    # 1. Проверяем, готова ли база данных к работе
+    # 1. Разделяем пути для базы (снаружи) и для SQL-схем (внутри .exe)
+    if getattr(sys, 'frozen', False):
+        # Если это .exe, схемы лежат во внутренней папке _internal/database
+        BASE_SQL_DIR = Path(sys._MEIPASS) / "database"
+        db_file_path = Path(sys.executable).resolve().parent.parent / "database" / "capycafe.db"
+    else:
+        # Если запускаем в IDE
+        BASE_SQL_DIR = PROJECT_ROOT / "database"
+        db_file_path = PROJECT_ROOT / "database" / "capycafe.db"
+
+    # 2. Проверяем готовность базы данных
     db_is_ready = False
     if db_file_path.exists():
         try:
@@ -197,15 +205,22 @@ def main():
         except sqlite3.Error:
             pass
 
-    # 2. Оптимизированная автоматическая сборка из .sql файлов
+    # 3. Автоматическая сборка, если база пуста или отсутствует
     if not db_is_ready:
         print("\nБаза данных не инициализирована. Сборка СУБД из конфигурационных файлов...")
         try:
-            db_dir.mkdir(parents=True, exist_ok=True)
+            db_file_path.parent.mkdir(parents=True, exist_ok=True)
 
-            # Читаем SQL-скрипты прямо с диска
-            schema_sql = (db_dir / "schema.sql").read_text(encoding="utf-8")
-            data_sql = (db_dir / "data.sql").read_text(encoding="utf-8")
+            schema_file = BASE_SQL_DIR / "schema.sql"
+            data_file = BASE_SQL_DIR / "data.sql"
+
+            if not schema_file.exists() or not data_file.exists():
+                print(f"Критическая ошибка: Не найдены файлы конфигурации SQL в {BASE_SQL_DIR}")
+                input("\nНажмите Enter для выхода...");
+                return
+
+            schema_sql = schema_file.read_text(encoding="utf-8")
+            data_sql = data_file.read_text(encoding="utf-8")
 
             with sqlite3.connect(db_file_path) as conn:
                 conn.executescript(schema_sql)
@@ -218,12 +233,11 @@ def main():
     else:
         print("База данных успешно обнаружена и проверена.")
 
-    # 3. Аутентификация сотрудника
+    # 4. Аутентификация сотрудника
     while not CURRENT_USER:
         login_screen()
 
-    # Извлекаем текстовую роль (индекс 2 из кортежа пользователя)
-    role = CURRENT_USER[2]
+    role = CURRENT_USER
 
     admin_menu = {
         "1": ("Просмотр структуры БД (Сырые таблицы)", show_db_ui),
@@ -236,7 +250,7 @@ def main():
         "8": ("Список сотрудников", list_users_formatted_ui),
         "9": ("Оформить новый заказ", lambda: ui_add_entity("order")),
         "10": ("Удалить заказ", lambda: ui_delete_entity("order")),
-        "11": ("Просмотреть активные заказы", ui_list_orders),
+        "11": ("Просмотреть active заказы", ui_list_orders),
         "12": ("Изменить статус заказа", ui_change_status)
     }
     waiter_menu = {
@@ -261,19 +275,14 @@ def main():
         menu = {"1": ("Просмотреть Меню кафе", ui_show_cafe_menu)}
 
     while True:
-        # Корректно выводим ФИО (индекс 1) и текстовую роль
-        print(f"\n=== МЕНЮ ({CURRENT_USER[1]} | Роль: {role}) ===")
-
-        # Выводим только текстовое название пункта
-        for k, v in menu.items():
-            print(f"{k}. {v[0]}")
+        print(f"\n=== МЕНЮ ({CURRENT_USER} | Роль: {role}) ===")
+        for k, v in menu.items(): print(f"{k}. {v}")
         print("0. Выход")
 
         ch = input("\nВыберите действие: ").strip()
         if ch == "0": break
         if ch in menu:
-            # Запускаем исполняемую функцию по индексу 1
-            menu[ch][1]()
+            menu[ch]()
         else:
             print("Ошибка: Пункт меню недоступен.")
 
