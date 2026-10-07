@@ -2,12 +2,15 @@ import sys
 import sqlite3
 from pathlib import Path
 
+# Универсальное определение путей для работы в IDE и в собранном .exe
 if getattr(sys, 'frozen', False):
     PROJECT_ROOT = Path(sys.executable).resolve().parent.parent
 else:
     PROJECT_ROOT = next((p for p in Path(__file__).resolve().parents if (p / "database").exists()), Path(__file__).resolve().parent.parent)
 
-DB_PATH = PROJECT_ROOT / "database" / "capycafe.db"
+# Главная переменная пути базы данных, которую требуют внутренние функции скрипта
+db_path = PROJECT_ROOT / "database" / "capycafe.db"
+
 
 sql_query = """
 PRAGMA foreign_keys = ON;

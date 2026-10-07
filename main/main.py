@@ -3,13 +3,11 @@ import sqlite3
 import subprocess
 from pathlib import Path
 
-# Абсолютно надежное определение корня проекта для IDE и для скомпилированного .exe
+# Универсальное определение путей для работы в IDE и в собранном .exe
 if getattr(sys, 'frozen', False):
-    # Если запущено как скомпилированный .exe, PROJECT_ROOT — это папка, где лежит сам EXE
     PROJECT_ROOT = Path(sys.executable).resolve().parent.parent
 else:
-    # Если запущен сырой скрипт в IDE (PyCharm)
-    PROJECT_ROOT = Path(__file__).resolve().parent.parent
+    PROJECT_ROOT = next((p for p in Path(__file__).resolve().parents if (p / "database").exists()), Path(__file__).resolve().parent.parent)
 
 # Подключаем пути к модулям СУБД
 for folder in ["dishes", "authorization", "orders"]:
@@ -20,7 +18,6 @@ import user_manager
 import order_manager
 
 CURRENT_USER = None  # (id, full_name, position)
-
 
 def ask(prompt, default=None, is_num=False, is_float=False):
     val = input(prompt).strip()
