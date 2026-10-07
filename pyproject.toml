@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "capycafe"
+version = "1.0.0"
+description = "Информационная система кафе CapyCafe"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    { name = "Иванов И.И." },
+    { name = "Петров П.П." }
+]
+keywords = ["sqlite3", "console", "cafe-management", "practice"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: Microsoft :: Windows",
+]
+
+# Зависимости, необходимые для сборки исполняемого .exe пакета
+dependencies = [
+    "pyinstaller>=6.0.0"
+]
