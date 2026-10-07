@@ -183,10 +183,46 @@ def ui_change_status():
 
 
 def main():
-    if not (PROJECT_ROOT / "database" / "capycafe.db").exists():
-        subprocess.run([sys.executable, str(PROJECT_ROOT / "database" / "scripts" / "createdb" / "insert_db.py")])
+    global CURRENT_USER
+    db_dir = PROJECT_ROOT / "database"
+    db_file_path = db_dir / "capycafe.db"
 
-    while not CURRENT_USER: login_screen()
+    # 1. Проверяем, готова ли база данных к работе
+    db_is_ready = False
+    if db_file_path.exists():
+        try:
+            with sqlite3.connect(db_file_path) as conn:
+                conn.execute("SELECT id FROM employees LIMIT 1")
+                db_is_ready = True
+        except sqlite3.Error:
+            pass
+
+    # 2. Оптимизированная автоматическая сборка из .sql файлов
+    if not db_is_ready:
+        print("\nБаза данных не инициализирована. Сборка СУБД из конфигурационных файлов...")
+        try:
+            db_dir.mkdir(parents=True, exist_ok=True)
+
+            # Читаем SQL-скрипты прямо с диска
+            schema_sql = (db_dir / "schema.sql").read_text(encoding="utf-8")
+            data_sql = (db_dir / "data.sql").read_text(encoding="utf-8")
+
+            with sqlite3.connect(db_file_path) as conn:
+                conn.executescript(schema_sql)
+                conn.executescript(data_sql)
+            print("УСПЕХ: База данных 'capycafe.db' успешно сгенерирована!")
+        except Exception as e:
+            print(f"Критическая ошибка автосборки базы: {e}")
+            input("\nНажмите Enter для выхода...");
+            return
+    else:
+        print("База данных успешно обнаружена и проверена.")
+
+    # 3. Аутентификация сотрудника
+    while not CURRENT_USER:
+        login_screen()
+
+    # Извлекаем текстовую роль (индекс 2 из кортежа пользователя)
     role = CURRENT_USER[2]
 
     admin_menu = {
@@ -225,13 +261,18 @@ def main():
         menu = {"1": ("Просмотреть Меню кафе", ui_show_cafe_menu)}
 
     while True:
+        # Корректно выводим ФИО (индекс 1) и текстовую роль
         print(f"\n=== МЕНЮ ({CURRENT_USER[1]} | Роль: {role}) ===")
-        for k, v in menu.items(): print(f"{k}. {v[0]}")
+
+        # Выводим только текстовое название пункта
+        for k, v in menu.items():
+            print(f"{k}. {v[0]}")
         print("0. Выход")
 
         ch = input("\nВыберите действие: ").strip()
         if ch == "0": break
         if ch in menu:
+            # Запускаем исполняемую функцию по индексу 1
             menu[ch][1]()
         else:
             print("Ошибка: Пункт меню недоступен.")
