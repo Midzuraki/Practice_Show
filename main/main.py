@@ -3,20 +3,21 @@ import sqlite3
 import subprocess
 from pathlib import Path
 
-# Определение корня проекта относительно запускаемого файла
-EXE_DIR = Path(sys.argv[0]).resolve().parent
-if EXE_DIR.name == "main" or EXE_DIR.name == "CapyCafe" or EXE_DIR.name == "_internal":
-    PROJECT_ROOT = EXE_DIR.parent
+# Абсолютно надежное определение корня проекта для IDE и для скомпилированного .exe
+if getattr(sys, 'frozen', False):
+    # Если запущено как скомпилированный .exe, PROJECT_ROOT — это папка, где лежит сам EXE
+    PROJECT_ROOT = Path(sys.executable).resolve().parent.parent
 else:
+    # Если запущен сырой скрипт в IDE (PyCharm)
     PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
+# Подключаем пути к модулям СУБД
 for folder in ["dishes", "authorization", "orders"]:
     sys.path.append(str(PROJECT_ROOT / "database" / "scripts" / folder))
 
 import menu_manager
 import user_manager
 import order_manager
-
 
 CURRENT_USER = None  # (id, full_name, position)
 

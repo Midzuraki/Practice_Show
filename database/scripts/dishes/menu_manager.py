@@ -1,13 +1,13 @@
+import sys
 import sqlite3
 from pathlib import Path
 
-def _find_db():
-    for parent in Path(__file__).resolve().parents:
-        if parent.name == "database":
-            return parent / "capycafe.db"
-    return Path(__file__).resolve().parents[2] / "capycafe.db"
+if getattr(sys, 'frozen', False):
+    PROJECT_ROOT = Path(sys.executable).resolve().parent.parent
+else:
+    PROJECT_ROOT = next((p for p in Path(__file__).resolve().parents if (p / "database").exists()), Path(__file__).resolve().parent.parent)
 
-DB_PATH = _find_db()
+DB_PATH = PROJECT_ROOT / "database" / "capycafe.db"
 
 
 def get_connection():

@@ -42,9 +42,9 @@ practice/
 
 Для работы приложения никаких сторонних библиотек устанавливать не нужно — используются встроенные модули `sqlite3` и `pathlib`.
 
-Запустите main.py
-   ```bash
-   python main.py
+Запустите CapyCafe.exe
+   ```
+   ...\CapyCafe\CapyCafe.exe
    ```
 
 ---
