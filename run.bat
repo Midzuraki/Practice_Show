@@ -12,7 +12,6 @@ if not exist ".venv" (
     .venv\Scripts\python.exe -m pip install pyinstaller
 )
 
-:: Если .exe файл еще не собран, собираем его автоматически на этом ПК
 if not exist "CapyCafe\CapyCafe.exe" (
     echo [ИНФО]: Сборка исполняемого файла CapyCafe.exe...
     .venv\Scripts\python.exe -m PyInstaller --onedir --console --name CapyCafe --distpath . main\main.py
@@ -22,7 +21,6 @@ if not exist "CapyCafe\CapyCafe.exe" (
     del /q CapyCafe.spec
 )
 
-:: Запуск готового приложения прямо в этом окне cmd
 cls
 if exist "CapyCafe\CapyCafe.exe" (
     cd CapyCafe
