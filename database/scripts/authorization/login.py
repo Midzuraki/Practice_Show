@@ -1,5 +1,6 @@
 import sys
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 
 if getattr(sys, 'frozen', False):
@@ -9,21 +10,21 @@ else:
 
 DB_PATH = PROJECT_ROOT / "database" / "capycafe.db"
 
+
 def get_connection():
-    ...
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("PRAGMA foreign_keys = ON")
+    return conn
+
 
 def get_user_by_id(employee_id):
-    """Ищет сотрудника в БД по его уникальному ID."""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, full_name, position FROM employees WHERE id = ?", (employee_id,))
-    user = cursor.fetchone()
-    conn.close()
-    return user
+    with closing(get_connection()) as conn:
+        return conn.execute(
+            "SELECT id, full_name, position FROM employees WHERE id = ?", (employee_id,)
+        ).fetchone()
 
 
 def get_role_permissions(position):
-    """Возвращает список доступных прецедентов (действий) на основе роли."""
     permissions = {
         'Администратор': [
             "Просмотреть меню", "Оформить заказ", "Изменить состав заказа",
@@ -45,11 +46,10 @@ def get_role_permissions(position):
 
 
 def login_ui():
-    """Интерфейс авторизации по ID."""
     print("\n=== СИСТЕМА ВХОДА В CAPYCAFE ===")
     user_input = input("Введите ваш ID сотрудника для входа: ").strip()
 
-    if not user_input.isdigit():
+    if not (user_input.isascii() and user_input.isdecimal()):
         print("Ошибка: ID должен быть числом.")
         return None
 

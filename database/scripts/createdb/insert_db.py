@@ -73,7 +73,7 @@ def populate_database():
 
     -- 1. Категории
     INSERT OR IGNORE INTO categories (id, name) VALUES 
-    (1, 'Закуски'), (2, 'Salaty'), (3, 'Супы'), (4, 'Горячие блюда'), (5, 'Десерты'), (6, 'Напитки');
+    (1, 'Закуски'), (2, 'Салаты'), (3, 'Супы'), (4, 'Горячие блюда'), (5, 'Десерты'), (6, 'Напитки');
 
     -- 2. Сотрудники (Полный состав для генерации тестовой рабочей среды)
     INSERT OR IGNORE INTO employees (id, full_name, position) VALUES 

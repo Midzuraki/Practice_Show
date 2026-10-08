@@ -21,10 +21,12 @@ if str(PROJECT_ROOT) not in sys.path:
 from database.scripts.dishes import menu_manager
 from database.scripts.authorization import user_manager
 from database.scripts.orders import order_manager
+from database.scripts.reports import report_manager
 
 menu_manager.DB_PATH = DB_PATH
 user_manager.DB_PATH = DB_PATH
 order_manager.DB_PATH = DB_PATH
+report_manager.DB_PATH = DB_PATH
 
 CURRENT_USER = None  # (id, full_name, position)
 
@@ -43,7 +45,9 @@ def run_safe_ui(func):
     def wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
-        except (ValueError, TypeError):
+        except ValueError as e:
+            print(f"Ошибка: {e}" if str(e) else "Ошибка: Некорректный ввод данных.")
+        except TypeError:
             print("Ошибка: Некорректный ввод данных.")
         except sqlite3.IntegrityError as e:
             print(f"Ошибка операции БД (отклонено базой): {e}")
@@ -108,12 +112,22 @@ def ui_delete_entity(target):
     uid = ask(f"Введите ID {target} для удаления: ", is_num=True)
     if not uid: return
     if target == "dish":
-        menu_manager.delete_dish_by_id(uid)
+        try:
+            menu_manager.delete_dish_by_id(uid)
+        except sqlite3.IntegrityError:
+            if not menu_manager.dish_is_used(uid):
+                raise
+            print("Блюдо использовано в заказах и не может быть удалено.")
+            if input("Отметить блюдо как недоступное? (д/н): ").strip().lower() == "д":
+                menu_manager.set_dish_availability(uid, False)
+                print("Блюдо отмечено как недоступное.")
+            return
     elif target == "user":
         if uid == CURRENT_USER[0]: return print("Ошибка: Нельзя удалить себя.")
         user_manager.delete_user_by_id(uid)
     elif target == "order":
-        order_manager.delete_order_by_id(uid)
+        order_manager.cancel_order(uid, CURRENT_USER[2])
+        return print(f"Заказ №{uid} отменён.")
     print("Успешно удалено.")
 
 
@@ -189,8 +203,60 @@ def ui_change_status():
     sid = ask("Выберите номер нового статуса: ", is_num=True)
     if sid not in {s[0] for s in statuses}: return print("Ошибка: Неверный статус.")
 
-    order_manager.update_order_status(oid, sid)
+    order_manager.update_order_status(oid, sid, CURRENT_USER[2])
     print(f"Статус заказа №{oid} успешно изменен!")
+
+
+@run_safe_ui
+def ui_search_dishes():
+    part = input("Часть названия (Enter - все): ")
+    print("Категории:", menu_manager.get_categories())
+    raw_cat = input("ID категории (Enter - все): ").strip()
+    cat_id = int(raw_cat) if raw_cat else None
+    raw_sort = input("Сортировка по цене (1 - по возрастанию, 2 - по убыванию, Enter - без): ").strip()
+    rows = menu_manager.get_dishes(cat_id, part, {"1": "asc", "2": "desc"}.get(raw_sort))
+    if not rows: return print("Ничего не найдено.")
+    for d_id, name, cat, price, avail in rows:
+        print(f" [{d_id}] {name} | {cat} | {price} руб. | {'в наличии' if avail else 'нет в наличии'}")
+
+
+@run_safe_ui
+def ui_filter_orders():
+    statuses = order_manager.get_statuses()
+    for s in statuses: print(f"  {s[0]} - {s[1]}")
+    raw_status = input("ID статуса (Enter - все): ").strip()
+    status_id = int(raw_status) if raw_status else None
+    d_from = input("Дата с (ДД.ММ.ГГГГ, Enter - без ограничения): ").strip() or None
+    d_to = input("Дата по (ДД.ММ.ГГГГ, Enter - без ограничения): ").strip() or None
+    orders = order_manager.get_orders(status_id, d_from, d_to)
+    if not orders: return print("Заказов не найдено.")
+    for o in orders:
+        print(f" №{o[0]} | {o[1]} | стол {o[2]} | {o[3]} | {o[4]} | {o[5]} руб.")
+
+
+@run_safe_ui
+def ui_order_details():
+    oid = ask("ID заказа: ", is_num=True)
+    if not oid or not order_manager.get_order_info(oid): return print("Ошибка: Заказ не найден.")
+    for name, qty, price, total in order_manager.get_order_items_details(oid):
+        print(f" {name} | {qty} x {price} = {total}")
+    print(f"Итого: {order_manager.get_order_total(oid)} руб.")
+
+
+@run_safe_ui
+def ui_dish_rating():
+    rows = report_manager.get_dish_rating()
+    if not rows: return print("Данных нет.")
+    for name, sold, revenue in rows:
+        print(f" {name} | порций: {sold} | выручка: {revenue}")
+
+
+@run_safe_ui
+def ui_revenue():
+    d_from = input("Дата начала (ДД.ММ.ГГГГ): ").strip()
+    d_to = input("Дата окончания (Enter - только одна дата): ").strip() or None
+    count, total = report_manager.get_revenue(d_from, d_to)
+    print(f"Период: {d_from} - {d_to or d_from}. Оплаченных заказов: {count}. Выручка: {total} руб.")
 
 
 def main():
@@ -249,20 +315,31 @@ def main():
         "7": ("Удалить сотрудника", lambda: ui_delete_entity("user")),
         "8": ("Список сотрудников", list_users_formatted_ui),
         "9": ("Оформить новый заказ", lambda: ui_add_entity("order")),
-        "10": ("Удалить заказ", lambda: ui_delete_entity("order")),
+        "10": ("Отменить заказ", lambda: ui_delete_entity("order")),
         "11": ("Просмотреть активные заказы", ui_list_orders),
-        "12": ("Изменить статус заказа", ui_change_status)
+        "12": ("Изменить статус заказа", ui_change_status),
+        "13": ("Поиск, фильтр и сортировка блюд", ui_search_dishes),
+        "14": ("Список заказов с фильтром (статус, дата)", ui_filter_orders),
+        "15": ("Состав и сумма заказа", ui_order_details),
+        "16": ("Отчёт: рейтинг блюд", ui_dish_rating),
+        "17": ("Отчёт: выручка за период", ui_revenue)
     }
     waiter_menu = {
         "1": ("Просмотреть Меню кафе", ui_show_cafe_menu),
         "2": ("Оформить новый заказ", lambda: ui_add_entity("order")),
-        "3": ("Удалить заказ", lambda: ui_delete_entity("order")),
-        "4": ("Просмотреть активные заказы", ui_list_orders)
+        "3": ("Отменить заказ", lambda: ui_delete_entity("order")),
+        "4": ("Просмотреть активные заказы", ui_list_orders),
+        "5": ("Изменить статус заказа (выдан, оплачен)", ui_change_status),
+        "6": ("Поиск, фильтр и сортировка блюд", ui_search_dishes),
+        "7": ("Список заказов с фильтром (статус, дата)", ui_filter_orders),
+        "8": ("Состав и сумма заказа", ui_order_details)
     }
     kitchen_menu = {
         "1": ("Просмотреть Меню кафе", ui_show_cafe_menu),
-        "2": ("Просмотреть active заказы", ui_list_orders),
-        "3": ("Изменить статус заказа (Отметка о готовности)", ui_change_status)
+        "2": ("Просмотреть активные заказы", ui_list_orders),
+        "3": ("Изменить статус заказа (Отметка о готовности)", ui_change_status),
+        "4": ("Поиск, фильтр и сортировка блюд", ui_search_dishes),
+        "5": ("Состав и сумма заказа", ui_order_details)
     }
 
     if role == 'Администратор':
