@@ -13,7 +13,7 @@
 ## Структура проекта
 
 ```text
-practice3/
+practice/
 │
 ├── CapyCafe/                   # Готовая переносимая сборка приложения
 │   ├── CapyCafe.exe            # Исполняемый файл для ОС Windows
