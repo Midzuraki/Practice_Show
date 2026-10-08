@@ -2,14 +2,22 @@ import sys
 import sqlite3
 from pathlib import Path
 
-
 if getattr(sys, 'frozen', False):
-    exe_dir = Path(sys.argv[0]).resolve().parent
-    DB_PATH = exe_dir.parent / "database" / "capycafe.db"
+    # Если запущен .exe
+    EXE_DIR = Path(sys.executable).resolve().parent  # Папка CapyCafe/
+    PROJECT_ROOT = EXE_DIR.parent  # Корень practice3/
 else:
-    PROJECT_ROOT = Path(__file__).resolve().parent.parent
-    DB_PATH = PROJECT_ROOT / "database" / "capycafe.db"
+    # Если запущен обычный .py
+    MAIN_DIR = Path(__file__).resolve().parent  # Папка main/
+    PROJECT_ROOT = MAIN_DIR.parent  # Корень practice3/
 
+DB_PATH = PROJECT_ROOT / "database" / "capycafe.db"
+
+# Исправляем поиск модулей для импорта папки database
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+# --- ДАЛЕЕ ВАШИ ИМПОРТЫ ---
 from database.scripts.dishes import menu_manager
 from database.scripts.authorization import user_manager
 from database.scripts.orders import order_manager
@@ -19,6 +27,7 @@ user_manager.DB_PATH = DB_PATH
 order_manager.DB_PATH = DB_PATH
 
 CURRENT_USER = None  # (id, full_name, position)
+
 
 
 def ask(prompt, default=None, is_num=False, is_float=False):
