@@ -128,7 +128,7 @@ def ui_delete_entity(target):
         if uid == CURRENT_USER[0]: return print("Ошибка: Нельзя удалить себя.")
         user_manager.delete_user_by_id(uid)
     elif target == "order":
-        order_manager.cancel_order(uid)
+        order_manager.cancel_order(uid, CURRENT_USER[2])
         return print(f"Заказ №{uid} отменён.")
     print("Успешно удалено.")
 
@@ -244,10 +244,13 @@ def ui_list_orders():
     orders = order_manager.get_active_orders()
     if not orders: return print("\n[Сейчас нет активных заказов в работе]")
     print("\n" + "-" * 65 + "\nСПИСОК АКТИВНЫХ ЗАКАЗОВ (В РАБОТЕ)\n" + "-" * 65)
-    headers = ["ID Заказа", "Дата/Время", "Стол", "Официант", "Статус"]
-    widths = [max(len(headers[i]), max(len(str(o[i])) for o in orders)) for i in range(5)]
-    print(" | ".join(headers[i].ljust(widths[i]) for i in range(5)) + "\n" + "-+-".join("-" * w for w in widths))
-    for o in orders: print(" | ".join(str(o[i]).ljust(widths[i]) for i in range(5)))
+    headers = ["ID заказа", "Дата/время", "Стол", "Сотрудник", "Статус", "Сумма, руб."]
+    rows = [(*o[:5], f"{o[5]:.2f}") for o in orders]
+    widths = [max(len(headers[i]), max(len(str(row[i])) for row in rows)) for i in range(len(headers))]
+    print(" | ".join(headers[i].ljust(widths[i]) for i in range(len(headers))))
+    print("-+-".join("-" * w for w in widths))
+    for row in rows:
+        print(" | ".join(str(row[i]).ljust(widths[i]) for i in range(len(headers))))
 
 
 @run_safe_ui
@@ -266,7 +269,7 @@ def ui_change_status():
     sid = ask("Выберите номер нового статуса: ", is_num=True)
     if sid not in {s[0] for s in statuses}: return print("Ошибка: Неверный статус.")
 
-    order_manager.update_order_status(oid, sid)
+    order_manager.update_order_status(oid, sid, CURRENT_USER[2])
     print(f"Статус заказа №{oid} успешно изменен!")
 
 
