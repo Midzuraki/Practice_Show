@@ -57,11 +57,31 @@ def run_safe_ui(func):
     return wrapper
 
 
+def login_screen():
+    global CURRENT_USER
+    print("\n" + "=" * 40 + "\n   ВХОД В CAPYCAFE\n" + "=" * 40)
+    try:
+        users = user_manager.get_all_users()
+        print("Доступные ID для входа:")
+        for u in users: print(f"  ID: {u[0]} — {u[1]} ({u[2]})")
+    except Exception:
+        pass
+
+    uid = ask("\nВведите ваш ID сотрудника: ", is_num=True)
+    user = user_manager.get_user_by_id(uid) if uid else None
+    if not user: print("Ошибка: Сотрудник не найден."); return False
+    CURRENT_USER = user
+    print(f"\nДобро пожаловать, {user[1]} ({user[2]})")
+    return True
+
+
 @run_safe_ui
 def ui_add_entity(target):
     if target == "dish":
         cats = {r[0] for r in menu_manager.get_categories()}
-        print("Категории:", [r for r in menu_manager.get_categories()])
+        print("Категории:")
+        for category_id, category_name in menu_manager.get_categories():
+            print(f"  {category_id}. {category_name}")
         cat_id = ask("ID категории: ", is_num=True)
         if cat_id not in cats: return print("Ошибка: Категории не существует.")
         name = ask("Название: ")
@@ -108,7 +128,7 @@ def ui_delete_entity(target):
         if uid == CURRENT_USER[0]: return print("Ошибка: Нельзя удалить себя.")
         user_manager.delete_user_by_id(uid)
     elif target == "order":
-        order_manager.cancel_order(uid)
+        order_manager.cancel_order(uid, CURRENT_USER[2])
         return print(f"Заказ №{uid} отменён.")
     print("Успешно удалено.")
 
@@ -199,7 +219,7 @@ def show_db_ui():
 def ui_show_cafe_menu():
     dishes = menu_manager.get_active_menu()
     if not dishes: return print("\n[Меню кафе пустое]")
-    print("\n" + "=" * 55 + "\n               МЕНЮ КАФЕ «ПРИЧАЛ»\n" + "=" * 55)
+    print("\n" + "=" * 55 + "\n               МЕНЮ CAPYCAFE\n" + "=" * 55)
     current_cat = ""
     for d_id, name, desc, price, cat_name in dishes:
         if cat_name != current_cat:
@@ -224,10 +244,13 @@ def ui_list_orders():
     orders = order_manager.get_active_orders()
     if not orders: return print("\n[Сейчас нет активных заказов в работе]")
     print("\n" + "-" * 65 + "\nСПИСОК АКТИВНЫХ ЗАКАЗОВ (В РАБОТЕ)\n" + "-" * 65)
-    headers = ["ID Заказа", "Дата/Время", "Стол", "Официант", "Статус"]
-    widths = [max(len(headers[i]), max(len(str(o[i])) for o in orders)) for i in range(5)]
-    print(" | ".join(headers[i].ljust(widths[i]) for i in range(5)) + "\n" + "-+-".join("-" * w for w in widths))
-    for o in orders: print(" | ".join(str(o[i]).ljust(widths[i]) for i in range(5)))
+    headers = ["ID заказа", "Дата/время", "Стол", "Сотрудник", "Статус", "Сумма, руб."]
+    rows = [(*o[:5], f"{o[5]:.2f}") for o in orders]
+    widths = [max(len(headers[i]), max(len(str(row[i])) for row in rows)) for i in range(len(headers))]
+    print(" | ".join(headers[i].ljust(widths[i]) for i in range(len(headers))))
+    print("-+-".join("-" * w for w in widths))
+    for row in rows:
+        print(" | ".join(str(row[i]).ljust(widths[i]) for i in range(len(headers))))
 
 
 @run_safe_ui
@@ -246,14 +269,16 @@ def ui_change_status():
     sid = ask("Выберите номер нового статуса: ", is_num=True)
     if sid not in {s[0] for s in statuses}: return print("Ошибка: Неверный статус.")
 
-    order_manager.update_order_status(oid, sid)
+    order_manager.update_order_status(oid, sid, CURRENT_USER[2])
     print(f"Статус заказа №{oid} успешно изменен!")
 
 
 @run_safe_ui
 def ui_search_dishes():
     part = input("Часть названия (Enter - все): ")
-    print("Категории:", menu_manager.get_categories())
+    print("Категории:")
+    for category_id, category_name in menu_manager.get_categories():
+        print(f"  {category_id}. {category_name}")
     raw_cat = input("ID категории (Enter - все): ").strip()
     cat_id = int(raw_cat) if raw_cat else None
     raw_sort = input("Сортировка по цене (1 - по возрастанию, 2 - по убыванию, Enter - без): ").strip()
@@ -280,10 +305,20 @@ def ui_filter_orders():
 @run_safe_ui
 def ui_order_details():
     oid = ask("ID заказа: ", is_num=True)
-    if not oid or not order_manager.get_order_info(oid): return print("Ошибка: Заказ не найден.")
+    if not oid:
+        return
+    info = order_manager.get_order_info(oid)
+    if not info:
+        return print("Ошибка: Заказ не найден.")
+
+    print(f"\nЧЕК ЗАКАЗА №{oid}")
+    print("-" * 72)
+    print(f"{'Блюдо':<30} | {'Кол-во':>7} | {'Цена, руб.':>12} | {'Сумма, руб.':>12}")
+    print("-" * 72)
     for name, qty, price, total in order_manager.get_order_items_details(oid):
-        print(f" {name} | {qty} x {price} = {total}")
-    print(f"Итого: {order_manager.get_order_total(oid)} руб.")
+        print(f"{name:<30} | {qty:>7} | {price:>12.2f} | {total:>12.2f}")
+    print("-" * 72)
+    print(f"ИТОГО К ОПЛАТЕ: {order_manager.get_order_total(oid):.2f} руб.")
 
 
 @run_safe_ui
@@ -302,6 +337,39 @@ def ui_revenue():
     print(f"Период: {d_from} - {d_to or d_from}. Оплаченных заказов: {count}. Выручка: {total} руб.")
 
 
+
+@run_safe_ui
+def ui_employee_efficiency():
+    d_from = input("Дата начала (ДД.ММ.ГГГГ, Enter — за всё время): ").strip() or None
+    d_to = input("Дата окончания (ДД.ММ.ГГГГ, Enter — без ограничения): ").strip() or None
+    rows = report_manager.get_employee_efficiency(d_from, d_to)
+    if not rows:
+        return print("Данные об официантах отсутствуют.")
+
+    print("\nЭФФЕКТИВНОСТЬ ОФИЦИАНТОВ")
+    print("-" * 72)
+    print(f"{'Официант':<32} | {'Столов обслужено':>16} | {'Выручка, руб.':>14}")
+    print("-" * 72)
+    for name, served_tables, revenue in rows:
+        print(f"{name:<32} | {served_tables:>16} | {revenue:>14.2f}")
+
+
+@run_safe_ui
+def ui_cancelled_orders():
+    rows = report_manager.get_cancelled_orders()
+    if not rows:
+        return print("Отменённых заказов нет.")
+
+    print("\nОТМЕНЁННЫЕ ЗАКАЗЫ — ПОТЕНЦИАЛЬНАЯ СТОИМОСТЬ")
+    print("-" * 92)
+    print(f"{'ID':>5} | {'Дата и время':<19} | {'Стол':>4} | {'Сотрудник':<30} | {'Сумма, руб.':>12}")
+    print("-" * 92)
+    for oid, order_date, table_number, employee, total in rows:
+        print(f"{oid:>5} | {order_date:<19} | {table_number:>4} | {employee:<30} | {total:>12.2f}")
+    print("-" * 92)
+    print(f"Всего отменённых заказов: {len(rows)}")
+    print(f"Потенциальная стоимость: {sum(row[4] for row in rows):.2f} руб.")
+
 def main():
     global CURRENT_USER
 
@@ -316,15 +384,27 @@ def main():
     sql_tables = "PRAGMA foreign_keys = ON; CREATE TABLE IF NOT EXISTS categories (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE); CREATE TABLE IF NOT EXISTS employees (id INTEGER PRIMARY KEY AUTOINCREMENT, full_name TEXT NOT NULL, position TEXT NOT NULL); CREATE TABLE IF NOT EXISTS order_statuses (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE); CREATE TABLE IF NOT EXISTS dishes (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, description TEXT, price REAL NOT NULL, is_available INTEGER NOT NULL DEFAULT 1, category_id INTEGER NOT NULL, FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE RESTRICT, CONSTRAINT chk_dish_price CHECK (price > 0)); CREATE TABLE IF NOT EXISTS orders (id INTEGER PRIMARY KEY AUTOINCREMENT, order_date TEXT NOT NULL DEFAULT (datetime('now', 'localtime')), table_number INTEGER NOT NULL, employee_id INTEGER NOT NULL, status_id INTEGER NOT NULL, FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE RESTRICT, FOREIGN KEY (status_id) REFERENCES order_statuses(id) ON DELETE RESTRICT, CONSTRAINT chk_table_number CHECK (table_number BETWEEN 1 AND 12)); CREATE TABLE IF NOT EXISTS order_items (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id INTEGER NOT NULL, dish_id INTEGER NOT NULL, quantity INTEGER NOT NULL, price_at_order REAL NOT NULL, FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE, FOREIGN KEY (dish_id) REFERENCES dishes(id) ON DELETE RESTRICT, CONSTRAINT chk_item_quantity CHECK (quantity > 0), CONSTRAINT chk_item_price CHECK (price_at_order > 0), UNIQUE(order_id, dish_id));"
     sql_data = "PRAGMA foreign_keys = ON; INSERT OR IGNORE INTO categories (id, name) VALUES (1, 'Закуски'), (2, 'Салаты'), (3, 'Супы'), (4, 'Горячие блюда'), (5, 'Десерты'), (6, 'Напитки'); INSERT OR IGNORE INTO employees (id, full_name, position) VALUES (1, 'Иванов Иван Иванович', 'Официант'), (2, 'Петрова Анна Сергеевна', 'Официант'), (3, 'Сидоров Алексей Петрович', 'Повар'), (4, 'Кузнецов Дмитрий Владимирович', 'Бармен'), (5, 'Смирнова Елена Николаевна', 'Администратор'); INSERT OR IGNORE INTO order_statuses (id, name) VALUES (1, 'Принят'), (2, 'Готовится'), (3, 'Готов'), (4, 'Выдан'), (5, 'Оплачен'), (6, 'Отменён'); INSERT OR IGNORE INTO dishes (id, name, description, price, is_available, category_id) VALUES (1, 'Гренки чесночные', 'Ржаные гренки с чесночным соусом', 150.00, 1, 1), (2, 'Салат Цезарь', 'Классический салат с курицей', 350.00, 1, 2), (3, 'Уха Астраханская', 'Традиционный суп из местной рыбы', 400.00, 1, 3), (4, 'Борщ', 'Классический мясной борщ со сметаной', 300.00, 1, 3), (5, 'Стейк из судака', 'Судак на гриле с овощами', 550.00, 1, 4), (6, 'Котлеты по-киевски', 'С картофельным пюре', 450.00, 1, 4), (7, 'Торт Наполеон', 'Домашний слоеный торт', 250.00, 1, 5), (8, 'Морс ягодный', 'Собственного приготовления', 100.00, 1, 6), (9, 'Кофе Капучино', 'Классический кофейный напиток', 180.00, 0, 6); INSERT OR IGNORE INTO orders (id, order_date, table_number, employee_id, status_id) VALUES (1, '2026-10-01 13:15:00', 3, 1, 5), (2, '2026-10-07 19:30:00', 5, 2, 2), (3, '2026-10-07 20:00:00', 12, 1, 1); INSERT OR IGNORE INTO order_items (order_id, dish_id, quantity, price_at_order) VALUES (1, 1, 2, 150.00), (1, 3, 1, 400.00), (2, 2, 1, 350.00), (2, 6, 2, 450.00), (3, 5, 1, 550.00), (3, 7, 2, 250.00), (3, 8, 3, 100.00);"
 
-    # 2. Проверяем не просто наличие файла, а наличие таблиц в СУБД
+    # 2. Проверяем наличие всех обязательных таблиц, а не только employees
+    required_tables = {
+        "categories", "employees", "order_statuses",
+        "dishes", "orders", "order_items",
+    }
     db_is_ready = False
     if db_file_path.exists():
         try:
             with sqlite3.connect(db_file_path) as conn:
-                conn.execute("SELECT id FROM employees LIMIT 1")
-                db_is_ready = True
+                existing_tables = {
+                    row[0] for row in conn.execute(
+                        "SELECT name FROM sqlite_master WHERE type = 'table'"
+                    )
+                }
+                db_is_ready = required_tables.issubset(existing_tables)
+                if db_is_ready:
+                    # Проверяем, что основные таблицы читаются без ошибок.
+                    for table in required_tables:
+                        conn.execute(f"SELECT 1 FROM {table} LIMIT 1")
         except sqlite3.Error:
-            pass
+            db_is_ready = False
 
     # 3. Автоматическая автосборка СУБД, если база пуста или отсутствует
     if not db_is_ready:
@@ -342,58 +422,76 @@ def main():
     else:
         print(f"База данных успешно обнаружена и проверена:\n -> {db_file_path}")
 
-    # Выбор сотрудника используется для фиксации автора заказа; авторизация не реализована.
-    employees = user_manager.get_all_users()
-    if not employees:
-        print("В базе нет сотрудников. Добавьте сотрудника в базу данных и запустите программу повторно.")
-        return
-    print("\nВыберите сотрудника, от имени которого будут оформляться заказы:")
-    for employee_id, full_name, position in employees:
-        print(f"  {employee_id}. {full_name} — {position}")
-    while CURRENT_USER is None:
-        employee_id = ask("ID сотрудника: ", is_num=True)
-        CURRENT_USER = user_manager.get_user_by_id(employee_id) if employee_id else None
-        if CURRENT_USER is None:
-            print("Сотрудник не найден. Повторите ввод.")
-    print(f"Выбран сотрудник: {CURRENT_USER[1]}. Разграничение доступа по должностям не используется.")
+    # 4. Аутентификация сотрудника
+    while not CURRENT_USER:
+        login_screen()
 
-    menu = {
-        "1": ("Просмотр структуры БД", show_db_ui),
-        "2": ("Просмотр меню кафе", ui_show_cafe_menu),
-        "3": ("Добавить блюдо", lambda: ui_add_entity("dish")),
-        "4": ("Изменить блюдо", ui_edit_dish),
-        "5": ("Удалить блюдо", lambda: ui_delete_entity("dish")),
+    role = CURRENT_USER[2]
+
+    admin_menu = {
+        "1": ("Просмотр структуры БД (Сырые таблицы)", show_db_ui),
+        "2": ("Просмотреть актуальное Меню кафе", ui_show_cafe_menu),
+        "3": ("Добавить блюдо в меню", lambda: ui_add_entity("dish")),
+        "4": ("Изменить блюдо в меню", ui_edit_dish),
+        "5": ("Удалить блюдо из меню", lambda: ui_delete_entity("dish")),
+        "6": ("Добавить нового сотрудника", lambda: ui_add_entity("user")),
+        "7": ("Удалить сотрудника", lambda: ui_delete_entity("user")),
+        "8": ("Список сотрудников", list_users_formatted_ui),
+        "9": ("Оформить новый заказ", lambda: ui_add_entity("order")),
+        "10": ("Отменить заказ", lambda: ui_delete_entity("order")),
+        "11": ("Просмотреть активные заказы", ui_list_orders),
+        "12": ("Изменить статус заказа", ui_change_status),
+        "13": ("Поиск, фильтр и сортировка блюд", ui_search_dishes),
+        "14": ("Список заказов с фильтром (статус, дата)", ui_filter_orders),
+        "15": ("Состав и сумма заказа", ui_order_details),
+        "16": ("Отчёт: рейтинг блюд", ui_dish_rating),
+        "17": ("Отчёт: выручка за период", ui_revenue),
+        "18": ("Список категорий", ui_categories),
+        "19": ("Добавить категорию", ui_add_category),
+        "20": ("Переименовать категорию", ui_edit_category),
+        "21": ("Удалить категорию", ui_delete_category),
+        "22": ("Изменить данные сотрудника", ui_edit_user),
+        "23": ("Отчёт: эффективность официантов", ui_employee_efficiency),
+        "24": ("Отчёт: отменённые заказы", ui_cancelled_orders)
+    }
+    waiter_menu = {
+        "1": ("Просмотреть Меню кафе", ui_show_cafe_menu),
+        "2": ("Оформить новый заказ", lambda: ui_add_entity("order")),
+        "3": ("Отменить заказ", lambda: ui_delete_entity("order")),
+        "4": ("Просмотреть активные заказы", ui_list_orders),
+        "5": ("Изменить статус заказа (выдан, оплачен)", ui_change_status),
         "6": ("Поиск, фильтр и сортировка блюд", ui_search_dishes),
-        "7": ("Список категорий", ui_categories),
-        "8": ("Добавить категорию", ui_add_category),
-        "9": ("Переименовать категорию", ui_edit_category),
-        "10": ("Удалить категорию", ui_delete_category),
-        "11": ("Добавить сотрудника", lambda: ui_add_entity("user")),
-        "12": ("Изменить сотрудника", ui_edit_user),
-        "13": ("Удалить сотрудника", lambda: ui_delete_entity("user")),
-        "14": ("Список сотрудников", list_users_formatted_ui),
-        "15": ("Оформить новый заказ", lambda: ui_add_entity("order")),
-        "16": ("Отменить заказ", lambda: ui_delete_entity("order")),
-        "17": ("Просмотреть активные заказы", ui_list_orders),
-        "18": ("Изменить статус заказа", ui_change_status),
-        "19": ("Список заказов с фильтром", ui_filter_orders),
-        "20": ("Состав и сумма заказа", ui_order_details),
-        "21": ("Рейтинг блюд", ui_dish_rating),
-        "22": ("Выручка за период", ui_revenue),
+        "7": ("Список заказов с фильтром (статус, дата)", ui_filter_orders),
+        "8": ("Состав и сумма заказа", ui_order_details)
+    }
+    kitchen_menu = {
+        "1": ("Просмотреть Меню кафе", ui_show_cafe_menu),
+        "2": ("Просмотреть активные заказы", ui_list_orders),
+        "3": ("Изменить статус заказа (Отметка о готовности)", ui_change_status),
+        "4": ("Поиск, фильтр и сортировка блюд", ui_search_dishes),
+        "5": ("Состав и сумма заказа", ui_order_details)
     }
 
+    if role == 'Администратор':
+        menu = admin_menu
+    elif role == 'Официант':
+        menu = waiter_menu
+    elif role in ['Повар', 'Бармен']:
+        menu = kitchen_menu
+    else:
+        menu = {"1": ("Просмотреть Меню кафе", ui_show_cafe_menu)}
+
     while True:
-        print("\n=== ИНФОРМАЦИОННАЯ СИСТЕМА КАФЕ «ПРИЧАЛ» ===")
-        for key, (label, _) in menu.items():
-            print(f"{key}. {label}")
+        print(f"\n=== МЕНЮ CAPYCAFE ({CURRENT_USER[1]} | Роль: {role}) ===")
+        for k, v in menu.items(): print(f"{k}. {v[0]}")
         print("0. Выход")
-        choice = input("\nВыберите действие: ").strip()
-        if choice == "0":
-            break
-        if choice in menu:
-            menu[choice][1]()
+
+        ch = input("\nВыберите действие: ").strip()
+        if ch == "0": break
+        if ch in menu:
+            menu[ch][1]()
         else:
-            print("Ошибка: неизвестный пункт меню.")
+            print("Ошибка: Пункт меню недоступен.")
 
 if __name__ == "__main__":
     main()

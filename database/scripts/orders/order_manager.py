@@ -15,6 +15,17 @@ STATUS_ACCEPTED, STATUS_COOKING, STATUS_READY, STATUS_SERVED, STATUS_PAID, STATU
 FINAL_STATUSES = (STATUS_PAID, STATUS_CANCELLED)
 MIN_TABLE, MAX_TABLE = 1, 12
 
+# Таблица 2: какие целевые статусы может выставлять роль
+ROLE_TARGET_STATUSES = {
+    'Повар': {STATUS_COOKING, STATUS_READY},
+    'Бармен': {STATUS_COOKING, STATUS_READY},
+    'Официант': {STATUS_SERVED, STATUS_PAID, STATUS_CANCELLED},
+    'Администратор': {STATUS_ACCEPTED, STATUS_COOKING, STATUS_READY, STATUS_SERVED, STATUS_PAID, STATUS_CANCELLED},
+}
+
+ORDER_CREATOR_POSITIONS = ('Официант', 'Администратор')
+
+
 # Таблица 4: допустимые переходы между статусами (ФТ-14, ФТ-15)
 ALLOWED_TRANSITIONS = {
     STATUS_ACCEPTED: {STATUS_COOKING, STATUS_CANCELLED},
@@ -91,6 +102,8 @@ def create_order(table_number, employee_id, items):
         employee = conn.execute("SELECT position FROM employees WHERE id = ?", (employee_id,)).fetchone()
         if not employee:
             raise ValueError("Сотрудник не найден.")
+        if employee[0] not in ORDER_CREATOR_POSITIONS:
+            raise ValueError("Оформлять заказы могут только официант и администратор.")
         cursor = conn.execute(
             "INSERT INTO orders (table_number, employee_id, status_id) VALUES (?, ?, ?)",
             (table_number, employee_id, STATUS_ACCEPTED)
@@ -191,7 +204,9 @@ def get_order_items_details(order_id):
 def get_active_orders():
     with _db() as conn:
         return conn.execute("""
-            SELECT o.id, o.order_date, o.table_number, e.full_name, s.name 
+            SELECT o.id, o.order_date, o.table_number, e.full_name, s.name,
+                   COALESCE((SELECT SUM(oi.quantity * oi.price_at_order)
+                             FROM order_items oi WHERE oi.order_id = o.id), 0) AS total
             FROM orders o
             JOIN employees e ON o.employee_id = e.id
             JOIN order_statuses s ON o.status_id = s.id
@@ -233,15 +248,19 @@ def get_statuses():
         return conn.execute("SELECT id, name FROM order_statuses ORDER BY id").fetchall()
 
 
-def update_order_status(order_id, status_id):
+def update_order_status(order_id, status_id, role=None):
+    if role is not None and role not in ROLE_TARGET_STATUSES:
+        raise ValueError(f"Неизвестная роль: {role}.")
     with _db() as conn:
         current = _get_status_id(conn, order_id)
         if status_id not in ALLOWED_TRANSITIONS:
             raise ValueError("Неизвестный статус заказа.")
         if status_id not in ALLOWED_TRANSITIONS[current]:
             raise ValueError("Недопустимый переход статуса заказа.")
+        if role is not None and status_id not in ROLE_TARGET_STATUSES[role]:
+            raise ValueError(f"Роль «{role}» не может устанавливать этот статус.")
         conn.execute("UPDATE orders SET status_id = ? WHERE id = ?", (status_id, order_id))
 
 
-def cancel_order(order_id):
-    update_order_status(order_id, STATUS_CANCELLED)
+def cancel_order(order_id, role=None):
+    update_order_status(order_id, STATUS_CANCELLED, role)
