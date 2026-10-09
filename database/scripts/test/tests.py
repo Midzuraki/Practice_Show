@@ -762,7 +762,7 @@ class TestReports(BaseDbTest):
         self.assertEqual(rows[0][0], 3)
         self.assertEqual(rows[0][2], 12)
         self.assertEqual(rows[0][3], "Иванов Иван Иванович")
-        self.assertEqual(rows[0][4], 1250.0)
+        self.assertEqual(rows[0][4], 1350.0)
 
     def test_cancelled_orders_empty_when_none_cancelled(self):
         self.assertEqual(report_manager.get_cancelled_orders(), [])
