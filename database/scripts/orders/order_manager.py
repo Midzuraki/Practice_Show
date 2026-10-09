@@ -102,6 +102,8 @@ def create_order(table_number, employee_id, items):
         employee = conn.execute("SELECT position FROM employees WHERE id = ?", (employee_id,)).fetchone()
         if not employee:
             raise ValueError("Сотрудник не найден.")
+        if employee[0] not in ORDER_CREATOR_POSITIONS:
+            raise ValueError("Оформлять заказы могут только официант и администратор.")
         cursor = conn.execute(
             "INSERT INTO orders (table_number, employee_id, status_id) VALUES (?, ?, ?)",
             (table_number, employee_id, STATUS_ACCEPTED)
