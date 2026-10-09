@@ -57,11 +57,31 @@ def run_safe_ui(func):
     return wrapper
 
 
+def login_screen():
+    global CURRENT_USER
+    print("\n" + "=" * 40 + "\n   ВХОД В ИНФОРМАЦИОННУЮ СИСТЕМУ КАФЕ\n" + "=" * 40)
+    try:
+        users = user_manager.get_all_users()
+        print("Доступные ID для входа:")
+        for u in users: print(f"  ID: {u[0]} — {u[1]} ({u[2]})")
+    except Exception:
+        pass
+
+    uid = ask("\nВведите ваш ID сотрудника: ", is_num=True)
+    user = user_manager.get_user_by_id(uid) if uid else None
+    if not user: print("Ошибка: Сотрудник не найден."); return False
+    CURRENT_USER = user
+    print(f"\nДобро пожаловать, {user[1]} ({user[2]})")
+    return True
+
+
 @run_safe_ui
 def ui_add_entity(target):
     if target == "dish":
         cats = {r[0] for r in menu_manager.get_categories()}
-        print("Категории:", [r for r in menu_manager.get_categories()])
+        print("Категории:")
+        for category_id, category_name in menu_manager.get_categories():
+            print(f"  {category_id}. {category_name}")
         cat_id = ask("ID категории: ", is_num=True)
         if cat_id not in cats: return print("Ошибка: Категории не существует.")
         name = ask("Название: ")
@@ -253,7 +273,9 @@ def ui_change_status():
 @run_safe_ui
 def ui_search_dishes():
     part = input("Часть названия (Enter - все): ")
-    print("Категории:", menu_manager.get_categories())
+    print("Категории:")
+    for category_id, category_name in menu_manager.get_categories():
+        print(f"  {category_id}. {category_name}")
     raw_cat = input("ID категории (Enter - все): ").strip()
     cat_id = int(raw_cat) if raw_cat else None
     raw_sort = input("Сортировка по цене (1 - по возрастанию, 2 - по убыванию, Enter - без): ").strip()
@@ -342,58 +364,74 @@ def main():
     else:
         print(f"База данных успешно обнаружена и проверена:\n -> {db_file_path}")
 
-    # Выбор сотрудника используется для фиксации автора заказа; авторизация не реализована.
-    employees = user_manager.get_all_users()
-    if not employees:
-        print("В базе нет сотрудников. Добавьте сотрудника в базу данных и запустите программу повторно.")
-        return
-    print("\nВыберите сотрудника, от имени которого будут оформляться заказы:")
-    for employee_id, full_name, position in employees:
-        print(f"  {employee_id}. {full_name} — {position}")
-    while CURRENT_USER is None:
-        employee_id = ask("ID сотрудника: ", is_num=True)
-        CURRENT_USER = user_manager.get_user_by_id(employee_id) if employee_id else None
-        if CURRENT_USER is None:
-            print("Сотрудник не найден. Повторите ввод.")
-    print(f"Выбран сотрудник: {CURRENT_USER[1]}. Разграничение доступа по должностям не используется.")
+    # 4. Аутентификация сотрудника
+    while not CURRENT_USER:
+        login_screen()
 
-    menu = {
-        "1": ("Просмотр структуры БД", show_db_ui),
-        "2": ("Просмотр меню кафе", ui_show_cafe_menu),
-        "3": ("Добавить блюдо", lambda: ui_add_entity("dish")),
-        "4": ("Изменить блюдо", ui_edit_dish),
-        "5": ("Удалить блюдо", lambda: ui_delete_entity("dish")),
+    role = CURRENT_USER[2]
+
+    admin_menu = {
+        "1": ("Просмотр структуры БД (Сырые таблицы)", show_db_ui),
+        "2": ("Просмотреть актуальное Меню кафе", ui_show_cafe_menu),
+        "3": ("Добавить блюдо в меню", lambda: ui_add_entity("dish")),
+        "4": ("Изменить блюдо в меню", ui_edit_dish),
+        "5": ("Удалить блюдо из меню", lambda: ui_delete_entity("dish")),
+        "6": ("Добавить нового сотрудника", lambda: ui_add_entity("user")),
+        "7": ("Удалить сотрудника", lambda: ui_delete_entity("user")),
+        "8": ("Список сотрудников", list_users_formatted_ui),
+        "9": ("Оформить новый заказ", lambda: ui_add_entity("order")),
+        "10": ("Отменить заказ", lambda: ui_delete_entity("order")),
+        "11": ("Просмотреть активные заказы", ui_list_orders),
+        "12": ("Изменить статус заказа", ui_change_status),
+        "13": ("Поиск, фильтр и сортировка блюд", ui_search_dishes),
+        "14": ("Список заказов с фильтром (статус, дата)", ui_filter_orders),
+        "15": ("Состав и сумма заказа", ui_order_details),
+        "16": ("Отчёт: рейтинг блюд", ui_dish_rating),
+        "17": ("Отчёт: выручка за период", ui_revenue),
+        "18": ("Список категорий", ui_categories),
+        "19": ("Добавить категорию", ui_add_category),
+        "20": ("Переименовать категорию", ui_edit_category),
+        "21": ("Удалить категорию", ui_delete_category),
+        "22": ("Изменить данные сотрудника", ui_edit_user)
+    }
+    waiter_menu = {
+        "1": ("Просмотреть Меню кафе", ui_show_cafe_menu),
+        "2": ("Оформить новый заказ", lambda: ui_add_entity("order")),
+        "3": ("Отменить заказ", lambda: ui_delete_entity("order")),
+        "4": ("Просмотреть активные заказы", ui_list_orders),
+        "5": ("Изменить статус заказа (выдан, оплачен)", ui_change_status),
         "6": ("Поиск, фильтр и сортировка блюд", ui_search_dishes),
-        "7": ("Список категорий", ui_categories),
-        "8": ("Добавить категорию", ui_add_category),
-        "9": ("Переименовать категорию", ui_edit_category),
-        "10": ("Удалить категорию", ui_delete_category),
-        "11": ("Добавить сотрудника", lambda: ui_add_entity("user")),
-        "12": ("Изменить сотрудника", ui_edit_user),
-        "13": ("Удалить сотрудника", lambda: ui_delete_entity("user")),
-        "14": ("Список сотрудников", list_users_formatted_ui),
-        "15": ("Оформить новый заказ", lambda: ui_add_entity("order")),
-        "16": ("Отменить заказ", lambda: ui_delete_entity("order")),
-        "17": ("Просмотреть активные заказы", ui_list_orders),
-        "18": ("Изменить статус заказа", ui_change_status),
-        "19": ("Список заказов с фильтром", ui_filter_orders),
-        "20": ("Состав и сумма заказа", ui_order_details),
-        "21": ("Рейтинг блюд", ui_dish_rating),
-        "22": ("Выручка за период", ui_revenue),
+        "7": ("Список заказов с фильтром (статус, дата)", ui_filter_orders),
+        "8": ("Состав и сумма заказа", ui_order_details)
+    }
+    kitchen_menu = {
+        "1": ("Просмотреть Меню кафе", ui_show_cafe_menu),
+        "2": ("Просмотреть активные заказы", ui_list_orders),
+        "3": ("Изменить статус заказа (Отметка о готовности)", ui_change_status),
+        "4": ("Поиск, фильтр и сортировка блюд", ui_search_dishes),
+        "5": ("Состав и сумма заказа", ui_order_details)
     }
 
+    if role == 'Администратор':
+        menu = admin_menu
+    elif role == 'Официант':
+        menu = waiter_menu
+    elif role in ['Повар', 'Бармен']:
+        menu = kitchen_menu
+    else:
+        menu = {"1": ("Просмотреть Меню кафе", ui_show_cafe_menu)}
+
     while True:
-        print("\n=== ИНФОРМАЦИОННАЯ СИСТЕМА КАФЕ «ПРИЧАЛ» ===")
-        for key, (label, _) in menu.items():
-            print(f"{key}. {label}")
+        print(f"\n=== МЕНЮ КАФЕ «ПРИЧАЛ» ({CURRENT_USER[1]} | Роль: {role}) ===")
+        for k, v in menu.items(): print(f"{k}. {v[0]}")
         print("0. Выход")
-        choice = input("\nВыберите действие: ").strip()
-        if choice == "0":
-            break
-        if choice in menu:
-            menu[choice][1]()
+
+        ch = input("\nВыберите действие: ").strip()
+        if ch == "0": break
+        if ch in menu:
+            menu[ch][1]()
         else:
-            print("Ошибка: неизвестный пункт меню.")
+            print("Ошибка: Пункт меню недоступен.")
 
 if __name__ == "__main__":
     main()
