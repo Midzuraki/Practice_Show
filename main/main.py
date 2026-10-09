@@ -59,7 +59,7 @@ def run_safe_ui(func):
 
 def login_screen():
     global CURRENT_USER
-    print("\n" + "=" * 40 + "\n   ВХОД В ИНФОРМАЦИОННУЮ СИСТЕМУ КАФЕ\n" + "=" * 40)
+    print("\n" + "=" * 40 + "\n   ВХОД В CAPYCAFE\n" + "=" * 40)
     try:
         users = user_manager.get_all_users()
         print("Доступные ID для входа:")
@@ -219,7 +219,7 @@ def show_db_ui():
 def ui_show_cafe_menu():
     dishes = menu_manager.get_active_menu()
     if not dishes: return print("\n[Меню кафе пустое]")
-    print("\n" + "=" * 55 + "\n               МЕНЮ КАФЕ «ПРИЧАЛ»\n" + "=" * 55)
+    print("\n" + "=" * 55 + "\n               МЕНЮ CAPYCAFE\n" + "=" * 55)
     current_cat = ""
     for d_id, name, desc, price, cat_name in dishes:
         if cat_name != current_cat:
@@ -482,7 +482,7 @@ def main():
         menu = {"1": ("Просмотреть Меню кафе", ui_show_cafe_menu)}
 
     while True:
-        print(f"\n=== МЕНЮ КАФЕ «ПРИЧАЛ» ({CURRENT_USER[1]} | Роль: {role}) ===")
+        print(f"\n=== МЕНЮ CAPYCAFE ({CURRENT_USER[1]} | Роль: {role}) ===")
         for k, v in menu.items(): print(f"{k}. {v[0]}")
         print("0. Выход")
 
