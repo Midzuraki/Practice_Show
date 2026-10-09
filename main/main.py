@@ -305,10 +305,20 @@ def ui_filter_orders():
 @run_safe_ui
 def ui_order_details():
     oid = ask("ID заказа: ", is_num=True)
-    if not oid or not order_manager.get_order_info(oid): return print("Ошибка: Заказ не найден.")
+    if not oid:
+        return
+    info = order_manager.get_order_info(oid)
+    if not info:
+        return print("Ошибка: Заказ не найден.")
+
+    print(f"\nЧЕК ЗАКАЗА №{oid}")
+    print("-" * 72)
+    print(f"{'Блюдо':<30} | {'Кол-во':>7} | {'Цена, руб.':>12} | {'Сумма, руб.':>12}")
+    print("-" * 72)
     for name, qty, price, total in order_manager.get_order_items_details(oid):
-        print(f" {name} | {qty} x {price} = {total}")
-    print(f"Итого: {order_manager.get_order_total(oid)} руб.")
+        print(f"{name:<30} | {qty:>7} | {price:>12.2f} | {total:>12.2f}")
+    print("-" * 72)
+    print(f"ИТОГО К ОПЛАТЕ: {order_manager.get_order_total(oid):.2f} руб.")
 
 
 @run_safe_ui
@@ -326,6 +336,39 @@ def ui_revenue():
     count, total = report_manager.get_revenue(d_from, d_to)
     print(f"Период: {d_from} - {d_to or d_from}. Оплаченных заказов: {count}. Выручка: {total} руб.")
 
+
+
+@run_safe_ui
+def ui_employee_efficiency():
+    d_from = input("Дата начала (ДД.ММ.ГГГГ, Enter — за всё время): ").strip() or None
+    d_to = input("Дата окончания (ДД.ММ.ГГГГ, Enter — без ограничения): ").strip() or None
+    rows = report_manager.get_employee_efficiency(d_from, d_to)
+    if not rows:
+        return print("Данные об официантах отсутствуют.")
+
+    print("\nЭФФЕКТИВНОСТЬ ОФИЦИАНТОВ")
+    print("-" * 72)
+    print(f"{'Официант':<32} | {'Столов обслужено':>16} | {'Выручка, руб.':>14}")
+    print("-" * 72)
+    for name, served_tables, revenue in rows:
+        print(f"{name:<32} | {served_tables:>16} | {revenue:>14.2f}")
+
+
+@run_safe_ui
+def ui_cancelled_orders():
+    rows = report_manager.get_cancelled_orders()
+    if not rows:
+        return print("Отменённых заказов нет.")
+
+    print("\nОТМЕНЁННЫЕ ЗАКАЗЫ — ПОТЕНЦИАЛЬНАЯ СТОИМОСТЬ")
+    print("-" * 92)
+    print(f"{'ID':>5} | {'Дата и время':<19} | {'Стол':>4} | {'Сотрудник':<30} | {'Сумма, руб.':>12}")
+    print("-" * 92)
+    for oid, order_date, table_number, employee, total in rows:
+        print(f"{oid:>5} | {order_date:<19} | {table_number:>4} | {employee:<30} | {total:>12.2f}")
+    print("-" * 92)
+    print(f"Всего отменённых заказов: {len(rows)}")
+    print(f"Потенциальная стоимость: {sum(row[4] for row in rows):.2f} руб.")
 
 def main():
     global CURRENT_USER
@@ -395,7 +438,9 @@ def main():
         "19": ("Добавить категорию", ui_add_category),
         "20": ("Переименовать категорию", ui_edit_category),
         "21": ("Удалить категорию", ui_delete_category),
-        "22": ("Изменить данные сотрудника", ui_edit_user)
+        "22": ("Изменить данные сотрудника", ui_edit_user),
+        "23": ("Отчёт: эффективность официантов", ui_employee_efficiency),
+        "24": ("Отчёт: отменённые заказы", ui_cancelled_orders)
     }
     waiter_menu = {
         "1": ("Просмотреть Меню кафе", ui_show_cafe_menu),
