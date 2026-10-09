@@ -11,7 +11,7 @@ else:
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from database.scripts.orders.order_manager import parse_date, STATUS_PAID, STATUS_CANCELLED
+from database.scripts.orders.order_manager import parse_date, STATUS_PAID
 
 DB_PATH = PROJECT_ROOT / "database" / "capycafe.db"
 
@@ -33,10 +33,10 @@ def get_dish_rating():
                FROM order_items oi
                JOIN dishes d ON oi.dish_id = d.id
                JOIN orders o ON oi.order_id = o.id
-               WHERE o.status_id != ?
+               WHERE o.status_id = ?
                GROUP BY d.id
                ORDER BY sold DESC, d.name""",
-            (STATUS_CANCELLED,)
+            (STATUS_PAID,)
         ).fetchall()
 
 
