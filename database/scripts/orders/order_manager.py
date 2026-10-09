@@ -204,7 +204,9 @@ def get_order_items_details(order_id):
 def get_active_orders():
     with _db() as conn:
         return conn.execute("""
-            SELECT o.id, o.order_date, o.table_number, e.full_name, s.name 
+            SELECT o.id, o.order_date, o.table_number, e.full_name, s.name,
+                   COALESCE((SELECT SUM(oi.quantity * oi.price_at_order)
+                             FROM order_items oi WHERE oi.order_id = o.id), 0) AS total
             FROM orders o
             JOIN employees e ON o.employee_id = e.id
             JOIN order_statuses s ON o.status_id = s.id
