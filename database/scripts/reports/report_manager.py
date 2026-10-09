@@ -11,7 +11,7 @@ else:
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from database.scripts.orders.order_manager import parse_date, STATUS_PAID
+from database.scripts.orders.order_manager import parse_date, STATUS_PAID, STATUS_CANCELLED
 
 DB_PATH = PROJECT_ROOT / "database" / "capycafe.db"
 
@@ -33,10 +33,10 @@ def get_dish_rating():
                FROM order_items oi
                JOIN dishes d ON oi.dish_id = d.id
                JOIN orders o ON oi.order_id = o.id
-               WHERE o.status_id = ?
+               WHERE o.status_id != ?
                GROUP BY d.id
                ORDER BY sold DESC, d.name""",
-            (STATUS_PAID,)
+            (STATUS_CANCELLED,)
         ).fetchall()
 
 
@@ -53,13 +53,13 @@ def get_employee_efficiency(date_from=None, date_to=None):
         raise ValueError("Начальная дата не может быть позже конечной.")
 
     date_conditions = []
-    params = [STATUS_PAID]
+    date_params = []
     if iso_from:
         date_conditions.append("date(o.order_date) >= ?")
-        params.append(iso_from)
+        date_params.append(iso_from)
     if iso_to:
         date_conditions.append("date(o.order_date) <= ?")
-        params.append(iso_to)
+        date_params.append(iso_to)
 
     join_conditions = ["o.employee_id = e.id"]
     join_conditions.extend(date_conditions)
@@ -76,7 +76,7 @@ def get_employee_efficiency(date_from=None, date_to=None):
                 WHERE e.position = 'Официант'
                 GROUP BY e.id, e.full_name
                 ORDER BY revenue DESC, served_tables DESC, e.full_name""",
-            [STATUS_PAID, *params[1:], STATUS_PAID]
+            [STATUS_PAID, STATUS_PAID, *date_params]
         ).fetchall()
         return [(name, count, round(total, 2)) for name, count, total in rows]
 
