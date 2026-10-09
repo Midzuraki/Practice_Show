@@ -742,6 +742,32 @@ class TestReports(BaseDbTest):
             report_manager.get_revenue("01.10.2026", "bad")
 
 
+    def test_employee_efficiency_counts_paid_orders_and_revenue(self):
+        rows = report_manager.get_employee_efficiency()
+        by_name = {name: (served, revenue) for name, served, revenue in rows}
+        self.assertEqual(by_name["Иванов Иван Иванович"], (1, 700.0))
+        self.assertEqual(by_name["Петрова Анна Сергеевна"], (0, 0.0))
+
+    def test_employee_efficiency_date_filter(self):
+        self.set_status(2, PAID)
+        rows = report_manager.get_employee_efficiency("07.10.2026", "07.10.2026")
+        by_name = {name: (served, revenue) for name, served, revenue in rows}
+        self.assertEqual(by_name["Петрова Анна Сергеевна"], (1, 1250.0))
+        self.assertEqual(by_name["Иванов Иван Иванович"], (0, 0.0))
+
+    def test_cancelled_orders_include_potential_total(self):
+        self.set_status(3, CANCELLED)
+        rows = report_manager.get_cancelled_orders()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0][0], 3)
+        self.assertEqual(rows[0][2], 12)
+        self.assertEqual(rows[0][3], "Иванов Иван Иванович")
+        self.assertEqual(rows[0][4], 1250.0)
+
+    def test_cancelled_orders_empty_when_none_cancelled(self):
+        self.assertEqual(report_manager.get_cancelled_orders(), [])
+
+
 class TestEmployees(BaseDbTest):
     """ФТ-18, таблицы 1 и 2."""
 
