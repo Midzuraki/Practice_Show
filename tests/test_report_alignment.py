@@ -15,17 +15,22 @@ class ReportAlignmentTests(unittest.TestCase):
         with __import__("sqlite3").connect(self.db_path) as conn:
             conn.executescript(Path("database/schema.sql").read_text(encoding="utf-8"))
             conn.executescript(Path("database/data.sql").read_text(encoding="utf-8"))
-        for module in (menu_manager, order_manager, report_manager, user_manager):
+        self.modules = (menu_manager, order_manager, report_manager, user_manager)
+        self.old_paths = [module.DB_PATH for module in self.modules]
+        for module in self.modules:
             module.DB_PATH = self.db_path
 
     def tearDown(self):
+        for module, old_path in zip(self.modules, self.old_paths):
+            module.DB_PATH = old_path
         self.temp_dir.cleanup()
 
-    def test_rating_includes_only_paid_orders(self):
+    def test_rating_excludes_cancelled_orders_but_includes_open_orders(self):
+        order_manager.update_order_status(3, order_manager.STATUS_CANCELLED)
         rows = report_manager.get_dish_rating()
         names = {row[0] for row in rows}
         self.assertIn("Гренки чесночные", names)
-        self.assertNotIn("Салат Цезарь", names)
+        self.assertIn("Салат Цезарь", names)
         self.assertNotIn("Стейк из судака", names)
 
     def test_category_crud_is_available_in_data_layer(self):
