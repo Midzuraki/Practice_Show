@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "capycafe"
-version = "0.8.1"
+version = "alpha 0.8.1"
 description = "Информационная система для кафе"
 readme = "README.md"
 requires-python = ">=3.10"
